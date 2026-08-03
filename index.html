@@ -1,0 +1,1105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Battleship Station – Ship-opoly</title>
+  <meta name="description" content="Battleship Station: Team vs Gamemaster, find hidden ships on a shared 10×10 grid.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+  <style>
+    /* ═══ TOKENS ══════════════════════════════════════ */
+    :root {
+      --cream:        #fdf6e3;
+      --cream-dark:   #f5e9c4;
+      --cream-border: #d4b96a;
+      --navy:         #1a2e4a;
+      --navy-light:   #2c4a6e;
+      --gold:         #c8960c;
+      --gold-light:   #f0c040;
+      --red:          #c0392b;
+      --green:        #1e7a4a;
+      --water:        #4a90d9;
+      --water-dark:   #2c6ea8;
+      --text-dark:    #1a1a1a;
+      --text-med:     #4a4a4a;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      background-color: var(--cream);
+      background-image:
+        radial-gradient(circle at 15% 15%, rgba(200,150,12,.09) 0%, transparent 55%),
+        radial-gradient(circle at 85% 85%, rgba(26,46,74,.06) 0%, transparent 55%),
+        repeating-linear-gradient(0deg,  transparent, transparent 39px, rgba(212,185,106,.18) 39px, rgba(212,185,106,.18) 40px),
+        repeating-linear-gradient(90deg, transparent, transparent 39px, rgba(212,185,106,.18) 39px, rgba(212,185,106,.18) 40px);
+      color: var(--text-dark);
+      min-height: 100vh;
+      padding: 18px 14px 50px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    /* ═══ HEADER ═════════════════════════════════════ */
+    .game-header { text-align: center; margin-bottom: 18px; }
+    .game-header h1 {
+      font-family: 'Playfair Display', serif;
+      font-size: clamp(1.8rem, 5vw, 2.6rem);
+      font-weight: 900;
+      color: var(--navy);
+      letter-spacing: 2px;
+      text-shadow: 2px 2px 0 var(--cream-border);
+    }
+    .game-header h1 span { color: var(--gold); }
+    .game-header .subtitle {
+      font-size: .82rem;
+      color: var(--text-med);
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      margin-top: 4px;
+    }
+
+    /* ═══ DASHBOARD ══════════════════════════════════ */
+    .dashboard {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: var(--navy);
+      color: white;
+      border-radius: 14px;
+      padding: 12px 24px;
+      width: 100%;
+      max-width: 720px;
+      margin-bottom: 16px;
+      border: 3px solid var(--gold);
+      box-shadow: 0 8px 32px rgba(0,0,0,.22);
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+    .dash-block { text-align: center; }
+    .dash-label { font-size: .65rem; text-transform: uppercase; letter-spacing: 1.5px; color: rgba(255,255,255,.5); margin-bottom: 2px; }
+    .dash-value { font-size: 1.6rem; font-weight: 700; color: var(--gold-light); line-height: 1; }
+    #timer-val.danger { color: #ff6b6b; animation: blink 1s infinite; }
+    @keyframes blink { 0%,100%{opacity:1} 50%{opacity:.35} }
+
+    .turn-badge {
+      padding: 8px 20px;
+      border-radius: 30px;
+      font-weight: 700;
+      font-size: .9rem;
+      letter-spacing: .5px;
+      border: 2px solid transparent;
+      transition: all .35s;
+    }
+    .tb-team { background: rgba(30,122,74,.28); color: #5dd99a; border-color: #5dd99a; }
+    .tb-gm   { background: rgba(192,57,43,.28); color: #ff8080; border-color: #ff8080; }
+
+    /* ═══ SCORE STRIP ════════════════════════════════ */
+    .score-strip {
+      display: flex;
+      gap: 12px;
+      width: 100%;
+      max-width: 720px;
+      margin-bottom: 16px;
+    }
+    .score-card {
+      flex: 1;
+      border-radius: 12px;
+      padding: 11px 16px;
+      border: 2px solid var(--cream-border);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      box-shadow: 0 4px 14px rgba(0,0,0,.1);
+      transition: box-shadow .4s, border-color .4s, transform .3s, opacity .3s;
+    }
+    .sc-team { background: linear-gradient(135deg,#e8f8f0,#d0f0e0); border-color: var(--green); }
+    .sc-gm   { background: linear-gradient(135deg,#fdecea,#fad0cd); border-color: var(--red); }
+    .sc-icon { font-size: 1.8rem; }
+    .sc-name { font-size: .72rem; text-transform: uppercase; letter-spacing: 1px; color: var(--text-med); font-weight: 600; }
+    .sc-pts  { font-size: 1.2rem; font-weight: 700; color: var(--navy); }
+    .sc-det  { font-size: .68rem; color: var(--text-med); }
+
+    /* active glow */
+    .score-card.sc-active-team {
+      border-color: var(--green) !important;
+      box-shadow: 0 0 0 3px rgba(30,122,74,.35), 0 0 20px rgba(30,122,74,.4);
+      transform: scale(1.04);
+    }
+    .score-card.sc-active-gm {
+      border-color: var(--red) !important;
+      box-shadow: 0 0 0 3px rgba(192,57,43,.35), 0 0 20px rgba(192,57,43,.4);
+      transform: scale(1.04);
+    }
+    .score-card.sc-dim { opacity: .5; transform: scale(0.97); }
+
+    /* ═══ ARENA ══════════════════════════════════════ */
+    .arena-wrapper {
+      width: 100%;
+      max-width: 720px;
+      background: var(--navy);
+      border-radius: 18px;
+      padding: 18px;
+      box-shadow: 0 8px 32px rgba(0,0,0,.24);
+      border: 4px solid var(--gold);
+      margin-bottom: 16px;
+    }
+    .arena-title {
+      text-align: center;
+      font-family: 'Playfair Display', serif;
+      font-size: 1rem;
+      color: var(--gold-light);
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      margin-bottom: 12px;
+    }
+    .grid-outer { display: flex; }
+    .row-labels {
+      display: flex;
+      flex-direction: column;
+      justify-content: space-around;
+      margin-right: 5px;
+      padding-top: 24px;
+    }
+    .axis-lbl {
+      font-size: .65rem;
+      font-weight: 700;
+      color: rgba(255,255,255,.45);
+      height: calc((min(680px, 95vw) - 36px - 30px) / 10);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 16px;
+    }
+    .grid-inner { flex: 1; }
+    .col-labels { display: grid; grid-template-columns: repeat(10,1fr); margin-bottom: 3px; }
+    .col-lbl { font-size: .65rem; font-weight: 700; color: rgba(255,255,255,.45); text-align: center; }
+
+    /* ═══ BATTLE GRID ════════════════════════════════ */
+    #battle-grid {
+      display: grid;
+      grid-template-columns: repeat(10, 1fr);
+      gap: 3px;
+    }
+
+    /* ── Cell: 2-layer reveal (reliable in all browsers) ── */
+    .cell {
+      position: relative;
+      width: 100%;
+      aspect-ratio: 1;
+      cursor: pointer;
+      border-radius: 5px;
+      overflow: hidden;
+    }
+    .cell.no-click { cursor: not-allowed; pointer-events: none; }
+
+    /* Bottom layer: image / hit / miss colours */
+    .cell-back {
+      position: absolute;
+      inset: 0;
+      border-radius: 5px;
+      overflow: hidden;
+      z-index: 1;
+    }
+    .cell.hit  .cell-back { background: linear-gradient(145deg,#ffb347,#e74c3c); }
+    .cell.miss .cell-back { background: linear-gradient(145deg,#8fa8bc,#b0c4d8); }
+
+    .cell.hit .cell-back::after {
+      content: '✕';
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.5rem;
+      font-weight: 900;
+      color: rgba(255,40,40,.95);
+      text-shadow: 0 0 8px #f00, 0 2px 4px rgba(0,0,0,.5);
+      z-index: 3;
+    }
+    .cell.miss .cell-back::after {
+      content: '○';
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.3rem;
+      font-weight: 700;
+      color: rgba(255,255,255,.65);
+      z-index: 3;
+    }
+
+    /* Image sprite slice */
+    .cell-shard {
+      position: absolute;
+      inset: 0;
+      border-radius: 4px;
+    }
+
+    /* Top layer: water cover — folds away with scaleX when clicked */
+    .cell-front {
+      position: absolute;
+      inset: 0;
+      border-radius: 5px;
+      z-index: 2;
+      background: linear-gradient(145deg, var(--water), var(--water-dark));
+      border: 1px solid rgba(255,255,255,.18);
+      box-shadow: inset 0 1px 3px rgba(255,255,255,.14), inset 0 -1px 3px rgba(0,0,0,.2);
+      transform-origin: center;
+      transition: transform .45s cubic-bezier(.4,0,.2,1);
+    }
+    .cell.flipped .cell-front {
+      transform: scaleX(0);
+      pointer-events: none;
+    }
+    .cell:not(.flipped):not(.no-click):hover .cell-front {
+      background: linear-gradient(145deg,#5aa4e0,#3a7fc0);
+      box-shadow: 0 0 10px rgba(90,164,224,.65);
+    }
+
+    /* Who-chip */
+    .who-chip {
+      position: absolute;
+      bottom: 2px; left: 2px;
+      padding: 1px 4px;
+      border-radius: 5px;
+      font-size: .42rem;
+      font-weight: 700;
+      z-index: 5;
+      pointer-events: none;
+      letter-spacing: .4px;
+    }
+    .who-chip.wc-team { background: var(--green); color: #fff; }
+    .who-chip.wc-gm   { background: var(--red);   color: #fff; }
+
+    /* ═══ LOG ════════════════════════════════════════ */
+    .log-strip {
+      width: 100%;
+      max-width: 720px;
+      background: white;
+      border: 2px solid var(--cream-border);
+      border-radius: 10px;
+      padding: 8px 12px;
+      font-size: .75rem;
+      color: var(--text-med);
+      max-height: 72px;
+      overflow-y: auto;
+      margin-bottom: 12px;
+      box-shadow: 0 4px 14px rgba(0,0,0,.09);
+    }
+    .log-entry { padding: 1px 0; border-bottom: 1px solid #f0e6c0; }
+    .log-entry:last-child { border-bottom: none; }
+    .log-who { font-weight: 700; margin-right: 4px; }
+    .lc-team { color: var(--green); }
+    .lc-gm   { color: var(--red); }
+    .lc-sys  { color: var(--navy); }
+
+    /* ═══ CONTROLS ═══════════════════════════════════ */
+    .controls { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; margin-bottom: 20px; }
+    .btn {
+      padding: 10px 22px;
+      font-size: .85rem;
+      font-weight: 700;
+      border: none;
+      border-radius: 10px;
+      cursor: pointer;
+      transition: transform .15s, box-shadow .15s, background .2s;
+      letter-spacing: .4px;
+      text-transform: uppercase;
+    }
+    .btn:hover  { transform: translateY(-2px); box-shadow: 0 5px 14px rgba(0,0,0,.2); }
+    .btn:active { transform: translateY(0); }
+    .btn-navy    { background: linear-gradient(135deg,var(--navy),var(--navy-light)); color: var(--gold-light); border: 2px solid var(--gold); }
+    .btn-gold    { background: linear-gradient(135deg,#8b6914,var(--gold));           color: white;             border: 2px solid var(--cream-border); }
+    .btn-danger  { background: linear-gradient(135deg,#a93226,var(--red));            color: white;             border: 2px solid #a93226; }
+    .btn-success { background: linear-gradient(135deg,#1a6b3a,var(--green));          color: white;             border: 2px solid #1a6b3a; }
+
+    /* ═══ TURN-SWITCH OVERLAY ════════════════════════ */
+    #turn-switch-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      z-index: 500;
+      background: rgba(10,20,40,.93);
+      align-items: center;
+      justify-content: center;
+      animation: fadeIn .3s ease;
+    }
+    #turn-switch-overlay.show { display: flex; }
+    @keyframes fadeIn { from{opacity:0} to{opacity:1} }
+
+    .tsw-card {
+      background: var(--cream);
+      border-radius: 24px;
+      padding: 46px 52px;
+      max-width: 480px;
+      width: 92vw;
+      text-align: center;
+      border: 4px solid var(--gold);
+      box-shadow: 0 24px 64px rgba(0,0,0,.5);
+      animation: popIn .4s cubic-bezier(.34,1.56,.64,1);
+    }
+    @keyframes popIn { from{transform:scale(.75);opacity:0} to{transform:scale(1);opacity:1} }
+
+    .tsw-emoji { font-size: 4.5rem; margin-bottom: 12px; }
+    .tsw-title { font-family:'Playfair Display',serif; font-size: 2rem; color: var(--navy); margin-bottom: 8px; }
+    .tsw-sub   { font-size: 1rem; color: var(--text-med); margin-bottom: 22px; line-height: 1.5; }
+    .tsw-arrow { font-size: 3rem; margin: 10px 0; animation: bounce 1s infinite; }
+    @keyframes bounce { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-10px)} }
+    .tsw-next  { font-family:'Playfair Display',serif; font-size: 1.5rem; font-weight: 900; margin-bottom: 24px; }
+    .tsw-next.team-next { color: var(--green); }
+    .tsw-next.gm-next   { color: var(--red); }
+
+    /* ═══ SETUP PANEL ════════════════════════════════ */
+    #setup-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,.6);
+      z-index: 400;
+      align-items: center;
+      justify-content: center;
+      backdrop-filter: blur(4px);
+    }
+    #setup-overlay.show { display: flex; }
+
+    .setup-panel {
+      background: var(--cream);
+      border-radius: 20px;
+      padding: 26px 28px;
+      max-width: 780px;
+      width: 96vw;
+      max-height: 93vh;
+      overflow-y: auto;
+      box-shadow: 0 20px 60px rgba(0,0,0,.4);
+      border: 3px solid var(--gold);
+    }
+    .setup-panel h2 { font-family:'Playfair Display',serif; font-size:1.6rem; color:var(--navy); margin-bottom:4px; }
+    .setup-panel .sp-sub { font-size:.8rem; color:var(--text-med); margin-bottom:18px; }
+
+    .sp-body { display:flex; gap:20px; flex-wrap:wrap; }
+
+    .sp-grid-wrap { flex:1; min-width:240px; }
+    .sp-grid-wrap h3,
+    .sp-right h3 { font-size:.8rem; font-weight:700; text-transform:uppercase; letter-spacing:1px; color:var(--navy); margin-bottom:8px; }
+
+    #setup-grid {
+      display: grid;
+      grid-template-columns: repeat(10,1fr);
+      gap: 3px;
+      border: 2px solid var(--navy);
+      border-radius: 8px;
+      padding: 5px;
+      background: var(--navy);
+    }
+    .sp-cell {
+      aspect-ratio: 1;
+      border-radius: 3px;
+      background: #b5cfe8;
+      cursor: pointer;
+      border: 1px solid rgba(255,255,255,.2);
+      transition: all .15s;
+      position: relative;
+    }
+    .sp-cell:hover { background: #7fafd4; transform: scale(1.1); }
+    .sp-cell.marked {
+      background: #e67e22;
+      border-color: rgba(255,255,255,.5);
+      box-shadow: 0 0 6px rgba(230,126,34,.7);
+    }
+    .sp-cell.marked::after {
+      content: '✓';
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: .55rem;
+      font-weight: 900;
+      color: white;
+    }
+
+    .sp-right { flex:1; min-width:200px; max-width:240px; display:flex; flex-direction:column; }
+
+    .sp-section { margin-bottom:16px; padding-bottom:14px; border-bottom:2px dashed var(--cream-border); }
+    .sp-section:last-child { border-bottom:none; margin-bottom:0; }
+
+    .sp-count-row { display:flex; align-items:center; gap:8px; margin-top:6px; }
+    .sp-count { font-size:1.3rem; font-weight:700; color:var(--navy); }
+    .sp-count-label { font-size:.75rem; color:var(--text-med); }
+
+    .img-upload-zone {
+      border: 2px dashed var(--cream-border);
+      border-radius: 10px;
+      padding: 14px;
+      text-align: center;
+      cursor: pointer;
+      transition: border-color .2s, background .2s;
+      background: white;
+      margin-top: 6px;
+      display: block;
+    }
+    .img-upload-zone:hover { border-color: var(--navy); background: var(--cream-dark); }
+    .img-upload-zone input[type=file] { display: none; }
+    .iuz-icon { font-size: 2rem; margin-bottom: 4px; }
+    .iuz-text { font-size: .75rem; color: var(--text-med); }
+    .iuz-name { font-size: .72rem; font-weight: 600; color: var(--navy); margin-top: 4px; word-break: break-all; }
+
+    .bg-thumb {
+      margin-top: 8px;
+      border-radius: 8px;
+      overflow: hidden;
+      height: 70px;
+      background: var(--cream-dark);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: .72rem;
+      color: var(--text-med);
+    }
+    .bg-thumb img { max-height: 68px; max-width: 100%; object-fit: contain; }
+
+    .timer-input {
+      width: 80px;
+      padding: 7px 10px;
+      border: 2px solid var(--cream-border);
+      border-radius: 8px;
+      font-size: 1rem;
+      font-weight: 700;
+      text-align: center;
+      background: white;
+      color: var(--navy);
+      outline: none;
+      margin-top: 6px;
+    }
+    .timer-input:focus { border-color: var(--navy); }
+
+    .sp-actions { display:flex; gap:8px; margin-top:18px; flex-wrap:wrap; }
+    .sp-actions .btn { flex:1; min-width:100px; }
+
+    /* ═══ RESULT MODAL ═══════════════════════════════ */
+    #result-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,.75);
+      z-index: 600;
+      align-items: center;
+      justify-content: center;
+      backdrop-filter: blur(6px);
+    }
+    #result-overlay.show { display: flex; }
+
+    .result-modal {
+      background: var(--cream);
+      border-radius: 22px;
+      padding: 36px 38px;
+      max-width: 480px;
+      width: 93vw;
+      text-align: center;
+      box-shadow: 0 24px 64px rgba(0,0,0,.48);
+      border: 4px solid var(--gold);
+      animation: popIn .4s cubic-bezier(.34,1.56,.64,1);
+    }
+    .rm-emoji  { font-size: 3.5rem; margin-bottom: 8px; }
+    .rm-title  { font-family:'Playfair Display',serif; font-size:1.8rem; color:var(--navy); margin-bottom:6px; }
+    .rm-winner { font-size:1.2rem; font-weight:700; margin-bottom:4px; }
+    .rm-reason { font-size:.8rem; color:var(--text-med); margin-bottom:20px; }
+
+    .score-table { width:100%; border-collapse:collapse; margin-bottom:20px; font-size:.84rem; }
+    .score-table th { background:var(--navy); color:var(--gold-light); padding:7px; font-weight:700; }
+    .score-table td { padding:8px 7px; border-bottom:1px solid var(--cream-border); color:var(--text-dark); }
+    .score-table tr:last-child td { font-weight:700; color:var(--navy); background:var(--cream-dark); }
+  </style>
+</head>
+<body>
+
+<!-- ══════════ HEADER ══════════ -->
+<header class="game-header">
+  <h1>⚓ SHIP-<span>OPOLY</span> ⚓</h1>
+  <p class="subtitle">Battleship Station · Team vs Gamemaster</p>
+</header>
+
+<!-- ══════════ DASHBOARD ══════════ -->
+<div class="dashboard">
+  <div class="dash-block">
+    <div class="dash-label">Time Left</div>
+    <div class="dash-value" id="timer-val">—</div>
+  </div>
+
+  <div id="turn-badge" class="turn-badge tb-team">Awaiting Start</div>
+
+  <div class="dash-block">
+    <div class="dash-label">Cells Found</div>
+    <div class="dash-value" id="cells-found">0 / 0</div>
+  </div>
+</div>
+
+<!-- ══════════ SCORE STRIP ══════════ -->
+<div class="score-strip">
+  <div class="score-card sc-team" id="team-score-card">
+    <div class="sc-icon">🟢</div>
+    <div>
+      <div class="sc-name">Team</div>
+      <div class="sc-pts" id="team-pts">0 pts</div>
+      <div class="sc-det" id="team-det">Hits: 0 | Found: 0</div>
+    </div>
+  </div>
+  <div class="score-card sc-gm" id="gm-score-card">
+    <div class="sc-icon">🔴</div>
+    <div>
+      <div class="sc-name">Gamemaster</div>
+      <div class="sc-pts" id="gm-pts">0 pts</div>
+      <div class="sc-det" id="gm-det">Hits: 0 | Found: 0</div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════ ARENA ══════════ -->
+<div class="arena-wrapper">
+  <div class="arena-title">🎯 Battle Grid — Click to Reveal</div>
+  <div class="grid-outer">
+    <div class="row-labels" id="row-labels"></div>
+    <div class="grid-inner">
+      <div class="col-labels" id="col-labels"></div>
+      <div id="battle-grid"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════ LOG ══════════ -->
+<div class="log-strip" id="game-log">
+  <div class="log-entry"><span class="log-who lc-sys">System:</span> Configure ships in Setup, then press Start Game.</div>
+</div>
+
+<!-- ══════════ CONTROLS ══════════ -->
+<div class="controls">
+  <button class="btn btn-gold" id="btn-setup"   onclick="openSetup()">⚙️ Setup</button>
+  <button class="btn btn-navy" id="btn-start"   onclick="startGame()">▶ Start Game</button>
+  <button class="btn btn-navy" id="btn-restart" onclick="restartGame()" style="display:none">↺ Restart</button>
+</div>
+
+
+<!-- ════════════════════════════════════════
+     TURN-SWITCH OVERLAY
+════════════════════════════════════════ -->
+<div id="turn-switch-overlay">
+  <div class="tsw-card">
+    <div class="tsw-emoji" id="tsw-emoji">⏸️</div>
+    <div class="tsw-title" id="tsw-title">Round Complete</div>
+    <div class="tsw-sub"  id="tsw-sub">Pass the device to the next player.</div>
+    <div class="tsw-arrow">↓</div>
+    <div class="tsw-next" id="tsw-next">Next: Team's Turn</div>
+    <button class="btn btn-navy" onclick="confirmTurnSwitch()" style="width:100%;font-size:1rem;padding:14px;margin-top:4px;">
+      ✅ I'm Ready — Start My Turn
+    </button>
+  </div>
+</div>
+
+
+<!-- ════════════════════════════════════════
+     SETUP PANEL
+════════════════════════════════════════ -->
+<div id="setup-overlay">
+  <div class="setup-panel">
+    <h2>⚙️ Admin Setup</h2>
+    <p class="sp-sub">Click cells to mark them as <strong>correct ship locations</strong>. Click again to unmark. Players must find these hidden cells.</p>
+
+    <div class="sp-body">
+      <!-- Placement grid -->
+      <div class="sp-grid-wrap">
+        <h3>Mark Correct Cells (10 × 10)</h3>
+        <div id="setup-grid"></div>
+        <div style="margin-top:8px;font-size:.72rem;color:var(--text-med);">
+          🟠 = marked as ship part &nbsp;|&nbsp; Click to toggle
+        </div>
+      </div>
+
+      <!-- Right column -->
+      <div class="sp-right">
+
+        <div class="sp-section">
+          <h3>Marked Cells</h3>
+          <div class="sp-count-row">
+            <span class="sp-count" id="sp-count">0</span>
+            <span class="sp-count-label">cells selected as ship parts</span>
+          </div>
+        </div>
+
+        <div class="sp-section">
+          <h3>🖼 Grid Background Image</h3>
+          <p style="font-size:.72rem;color:var(--text-med);margin-bottom:6px;">
+            Upload an image from your device. It will be revealed piece-by-piece as cells are clicked.
+          </p>
+          <label class="img-upload-zone" id="upload-zone">
+            <input type="file" id="img-file-input" accept="image/*" onchange="handleImageUpload(event)">
+            <div class="iuz-icon">📂</div>
+            <div class="iuz-text">Click to browse files<br><em>JPG, PNG, GIF, WebP</em></div>
+            <div class="iuz-name" id="img-file-name">No file selected</div>
+          </label>
+          <div class="bg-thumb" id="bg-thumb"><span>No image loaded</span></div>
+          <button class="btn btn-danger" style="margin-top:8px;width:100%;font-size:.75rem;padding:7px;" onclick="clearImage()">🗑 Remove Image</button>
+        </div>
+
+        <div class="sp-section">
+          <h3>⏱ Timer</h3>
+          <input type="number" class="timer-input" id="timer-config" value="90" min="10" max="600">
+          <span style="font-size:.75rem;color:var(--text-med);margin-left:6px;">seconds</span>
+        </div>
+
+      </div>
+    </div>
+
+    <div class="sp-actions">
+      <button class="btn btn-danger"  onclick="clearSetup()">🗑 Clear All</button>
+      <button class="btn btn-success" onclick="applySetup()">✅ Apply & Close</button>
+      <button class="btn btn-navy"    onclick="closeSetup()">✖ Close</button>
+    </div>
+  </div>
+</div>
+
+
+<!-- ════════════════════════════════════════
+     RESULT MODAL
+════════════════════════════════════════ -->
+<div id="result-overlay">
+  <div class="result-modal">
+    <div class="rm-emoji"  id="rm-emoji">🏆</div>
+    <div class="rm-title">Station Complete!</div>
+    <div class="rm-winner" id="rm-winner">Team Wins!</div>
+    <div class="rm-reason" id="rm-reason"></div>
+
+    <table class="score-table">
+      <thead>
+        <tr><th>Metric</th><th>Team</th><th>Gamemaster</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>Parts Hit (×1 pt)</td><td id="rt-t-hits">0</td><td id="rt-g-hits">0</td></tr>
+        <tr><td>Total Score</td>      <td id="rt-t-score">0</td><td id="rt-g-score">0</td></tr>
+      </tbody>
+    </table>
+
+    <button class="btn btn-navy" onclick="restartGame()">↺ Play Again</button>
+  </div>
+</div>
+
+
+<script>
+/* ─── CONFIG ─────────────────────────── */
+const GRID = 10;
+const ROWS = 'ABCDEFGHIJ';
+
+/* ─── STATE ──────────────────────────── */
+let correctCells = new Set();   // admin-marked indices
+let revealed     = [];          // null | { by:'TEAM'|'GM', result:'HIT'|'MISS' }
+let currentTurn  = 'TEAM';
+let gameRunning  = false;
+let gameOver     = false;
+let timerSecs    = 90;
+let timeLeft     = 90;
+let timerHandle  = null;
+let bgDataUrl    = '';
+
+/* ─── SETUP STATE ────────────────────── */
+let setupMarked = new Set();
+let setupBgUrl  = '';
+
+/* ════════════════════════════════════════
+   AXIS LABELS
+════════════════════════════════════════ */
+function buildAxisLabels() {
+  const rowEl = document.getElementById('row-labels');
+  const colEl = document.getElementById('col-labels');
+  rowEl.innerHTML = '';
+  colEl.innerHTML = '';
+  for (let r = 0; r < GRID; r++) {
+    const d = document.createElement('div');
+    d.className   = 'axis-lbl';
+    d.textContent = ROWS[r];
+    rowEl.appendChild(d);
+  }
+  for (let c = 1; c <= GRID; c++) {
+    const d = document.createElement('div');
+    d.className   = 'col-lbl';
+    d.textContent = c;
+    colEl.appendChild(d);
+  }
+}
+
+/* ════════════════════════════════════════
+   GRID RENDER  (works for both turns)
+════════════════════════════════════════ */
+function renderGrid(activePlayer) {
+  const grid = document.getElementById('battle-grid');
+  grid.innerHTML = '';
+
+  for (let i = 0; i < GRID * GRID; i++) {
+    const rev       = revealed[i];
+    const isFlipped = rev !== null;
+
+    const cell = document.createElement('div');
+    cell.className = 'cell';
+    cell.id        = 'gc-' + i;
+    if (isFlipped) cell.classList.add('flipped');
+    if (rev && rev.result === 'HIT')  cell.classList.add('hit');
+    if (rev && rev.result === 'MISS') cell.classList.add('miss');
+
+    const canClick = gameRunning && !gameOver && !isFlipped && activePlayer !== undefined;
+    if (!canClick) {
+      cell.classList.add('no-click');
+    } else {
+      cell.addEventListener('click', () => handleCellClick(i, activePlayer));
+    }
+
+    /* Back layer — image/colour revealed on flip */
+    const back = document.createElement('div');
+    back.className = 'cell-back';
+    if (bgDataUrl) {
+      const shard = document.createElement('div');
+      shard.className = 'cell-shard';
+      const col = i % GRID;
+      const row = Math.floor(i / GRID);
+      shard.style.backgroundImage    = `url('${bgDataUrl}')`;
+      shard.style.backgroundSize     = `${GRID * 100}% ${GRID * 100}%`;
+      shard.style.backgroundPosition = `${col * (100/(GRID-1))}% ${row * (100/(GRID-1))}%`;
+      back.appendChild(shard);
+    }
+    if (rev) {
+      const chip = document.createElement('div');
+      chip.className   = `who-chip ${rev.by === 'TEAM' ? 'wc-team' : 'wc-gm'}`;
+      chip.textContent = rev.by === 'TEAM' ? 'TEAM' : 'GM';
+      back.appendChild(chip);
+    }
+
+    /* Front layer — water cover, folds away on flip */
+    const front = document.createElement('div');
+    front.className = 'cell-front';
+
+    cell.appendChild(back);
+    cell.appendChild(front);
+    grid.appendChild(cell);
+  }
+}
+
+/* ════════════════════════════════════════
+   CLICK HANDLER (shared for both players)
+════════════════════════════════════════ */
+function handleCellClick(index, byWhom) {
+  if (!gameRunning || gameOver || revealed[index] !== null) return;
+
+  const isHit = correctCells.has(index);
+  revealed[index] = { by: byWhom, result: isHit ? 'HIT' : 'MISS' };
+
+  const cellName = ROWS[Math.floor(index / GRID)] + ((index % GRID) + 1);
+  addLog(byWhom === 'TEAM' ? 'Team' : 'Gamemaster',
+         `${isHit ? '💥 HIT' : '💨 Miss'} at ${cellName}`,
+         byWhom === 'TEAM' ? 'lc-team' : 'lc-gm');
+
+  /* Re-render (no active player — grid becomes non-clickable while overlay shows) */
+  renderGrid(undefined);
+  updateDashboard();
+
+  if (checkVictory()) return;
+
+  /* Show turn-switch overlay */
+  const nextPlayer = byWhom === 'TEAM' ? 'GM' : 'TEAM';
+  showTurnSwitch(byWhom, nextPlayer);
+}
+
+/* ════════════════════════════════════════
+   TURN-SWITCH HANDOFF
+════════════════════════════════════════ */
+function showTurnSwitch(justPlayed, nextPlayer) {
+  clearInterval(timerHandle);   /* pause timer while switching turns */
+
+  currentTurn = nextPlayer;
+  updateTurnBadge();
+  renderGrid(nextPlayer);
+  resumeTimer();
+}
+
+function confirmTurnSwitch() {
+  const overlay    = document.getElementById('turn-switch-overlay');
+  const nextPlayer = overlay.dataset.next;
+  overlay.classList.remove('show');
+
+  currentTurn = nextPlayer;
+  updateTurnBadge();
+  renderGrid(nextPlayer);    /* re-render with correct player's click handlers */
+  resumeTimer();
+}
+
+/* ════════════════════════════════════════
+   TIMER
+════════════════════════════════════════ */
+function startTimer() {
+  clearInterval(timerHandle);
+  const el = document.getElementById('timer-val');
+  el.classList.remove('danger');
+  el.textContent = timeLeft + 's';
+  timerHandle = setInterval(tickTimer, 1000);
+}
+
+function resumeTimer() {
+  clearInterval(timerHandle);
+  timerHandle = setInterval(tickTimer, 1000);
+}
+
+function tickTimer() {
+  timeLeft--;
+  const el = document.getElementById('timer-val');
+  el.textContent = timeLeft + 's';
+  if (timeLeft <= 10) el.classList.add('danger');
+  if (timeLeft <= 0) {
+    clearInterval(timerHandle);
+    endGame('TIME_EXPIRED');
+  }
+}
+
+/* ════════════════════════════════════════
+   SCORE & STATS
+════════════════════════════════════════ */
+function getStats(byWhom) {
+  let hits = 0;
+  for (const idx of correctCells) {
+    if (revealed[idx] && revealed[idx].by === byWhom && revealed[idx].result === 'HIT') hits++;
+  }
+  return { hits, score: hits };
+}
+
+/* ════════════════════════════════════════
+   VICTORY CHECK
+════════════════════════════════════════ */
+function checkVictory() {
+  const allFound = [...correctCells].every(idx => revealed[idx] !== null);
+  if (allFound) { endGame('ALL_FOUND'); return true; }
+  return false;
+}
+
+/* ════════════════════════════════════════
+   END GAME
+════════════════════════════════════════ */
+function endGame(reason) {
+  gameOver    = true;
+  gameRunning = false;
+  clearInterval(timerHandle);
+  document.getElementById('turn-switch-overlay').classList.remove('show');
+
+  const tStats = getStats('TEAM');
+  const gStats = getStats('GM');
+
+  const emoji    = document.getElementById('rm-emoji');
+  const winnerEl = document.getElementById('rm-winner');
+  const reasonEl = document.getElementById('rm-reason');
+
+  const teamWins = tStats.score > gStats.score;
+  const tied     = tStats.score === gStats.score;
+
+  reasonEl.textContent = reason === 'ALL_FOUND'
+    ? 'All ship locations have been found!'
+    : 'Time expired! Winner decided by total hits.';
+
+  if (tied) {
+    emoji.textContent    = '🤝';
+    winnerEl.textContent = "It's a Draw!";
+    winnerEl.style.color = 'var(--navy)';
+  } else if (teamWins) {
+    emoji.textContent    = '🎉';
+    winnerEl.textContent = 'Team Wins!';
+    winnerEl.style.color = 'var(--green)';
+  } else {
+    emoji.textContent    = '💥';
+    winnerEl.textContent = 'Gamemaster Wins!';
+    winnerEl.style.color = 'var(--red)';
+  }
+
+  document.getElementById('rt-t-hits').textContent  = tStats.hits;
+  document.getElementById('rt-g-hits').textContent  = gStats.hits;
+  document.getElementById('rt-t-score').textContent = tStats.score;
+  document.getElementById('rt-g-score').textContent = gStats.score;
+
+  document.getElementById('result-overlay').classList.add('show');
+}
+
+/* ════════════════════════════════════════
+   DASHBOARD
+════════════════════════════════════════ */
+function updateDashboard() {
+  const tStats = getStats('TEAM');
+  const gStats = getStats('GM');
+  const total  = correctCells.size;
+  const found  = tStats.hits + gStats.hits;
+
+  document.getElementById('cells-found').textContent = `${found} / ${total}`;
+  document.getElementById('team-pts').textContent    = tStats.score + ' pts';
+  document.getElementById('gm-pts').textContent      = gStats.score + ' pts';
+  document.getElementById('team-det').textContent    = `Hits: ${tStats.hits}`;
+  document.getElementById('gm-det').textContent      = `Hits: ${gStats.hits}`;
+  updateTurnBadge();
+}
+
+function updateTurnBadge() {
+  const badge    = document.getElementById('turn-badge');
+  const teamCard = document.getElementById('team-score-card');
+  const gmCard   = document.getElementById('gm-score-card');
+
+  teamCard.classList.remove('sc-active-team', 'sc-dim');
+  gmCard.classList.remove('sc-active-gm', 'sc-dim');
+
+  if (!gameRunning) {
+    badge.textContent = 'Awaiting Start';
+    badge.className   = 'turn-badge tb-team';
+  } else if (currentTurn === 'TEAM') {
+    badge.textContent = "🟢 Team's Turn";
+    badge.className   = 'turn-badge tb-team';
+    teamCard.classList.add('sc-active-team');
+    gmCard.classList.add('sc-dim');
+  } else {
+    badge.textContent = "🔴 Gamemaster's Turn";
+    badge.className   = 'turn-badge tb-gm';
+    gmCard.classList.add('sc-active-gm');
+    teamCard.classList.add('sc-dim');
+  }
+}
+
+/* ════════════════════════════════════════
+   START / RESTART
+════════════════════════════════════════ */
+function startGame() {
+  if (correctCells.size === 0) {
+    alert('⚠ Please mark at least one cell as a ship location in the Setup panel first!');
+    return;
+  }
+  gameOver    = false;
+  gameRunning = true;
+  currentTurn = 'TEAM';
+  timeLeft    = timerSecs;
+  revealed    = new Array(GRID * GRID).fill(null);
+
+  document.getElementById('btn-start').style.display   = 'none';
+  document.getElementById('btn-setup').style.display   = 'none';
+  document.getElementById('btn-restart').style.display = '';
+  document.getElementById('result-overlay').classList.remove('show');
+  document.getElementById('turn-switch-overlay').classList.remove('show');
+
+  renderGrid('TEAM');
+  updateDashboard();
+  startTimer();
+  addLog('System', `Game started! ${correctCells.size} ship cells hidden. Team goes first.`, 'lc-sys');
+}
+
+function restartGame() {
+  clearInterval(timerHandle);
+  gameRunning = false;
+  gameOver    = false;
+  revealed    = new Array(GRID * GRID).fill(null);
+
+  document.getElementById('btn-start').style.display   = '';
+  document.getElementById('btn-setup').style.display   = '';
+  document.getElementById('btn-restart').style.display = 'none';
+  document.getElementById('result-overlay').classList.remove('show');
+  document.getElementById('turn-switch-overlay').classList.remove('show');
+  document.getElementById('timer-val').textContent = '—';
+  document.getElementById('timer-val').classList.remove('danger');
+
+  renderGrid(undefined);
+  updateDashboard();
+  addLog('System', 'Game reset. Adjust setup if needed, then press Start Game.', 'lc-sys');
+}
+
+/* ════════════════════════════════════════
+   LOG
+════════════════════════════════════════ */
+function addLog(who, msg, cls) {
+  const log   = document.getElementById('game-log');
+  const entry = document.createElement('div');
+  entry.className = 'log-entry';
+  entry.innerHTML = `<span class="log-who ${cls}">${who}:</span> ${msg}`;
+  log.prepend(entry);
+}
+
+/* ════════════════════════════════════════
+   SETUP PANEL
+════════════════════════════════════════ */
+function openSetup() {
+  buildSetupGrid();
+  document.getElementById('setup-overlay').classList.add('show');
+}
+
+function closeSetup() {
+  document.getElementById('setup-overlay').classList.remove('show');
+}
+
+function applySetup() {
+  correctCells = new Set(setupMarked);
+  bgDataUrl    = setupBgUrl;
+  timerSecs    = parseInt(document.getElementById('timer-config').value, 10) || 90;
+  timeLeft     = timerSecs;
+  document.getElementById('timer-val').textContent = timerSecs + 's';
+  closeSetup();
+  updateDashboard();
+  renderGrid(undefined);
+  addLog('System', `Setup applied: ${correctCells.size} ship cells, timer ${timerSecs}s.`, 'lc-sys');
+}
+
+function clearSetup() {
+  setupMarked.clear();
+  buildSetupGrid();
+}
+
+function buildSetupGrid() {
+  const grid = document.getElementById('setup-grid');
+  grid.innerHTML = '';
+  for (let i = 0; i < GRID * GRID; i++) {
+    const cell = document.createElement('div');
+    cell.className = 'sp-cell' + (setupMarked.has(i) ? ' marked' : '');
+    cell.addEventListener('click', () => toggleSetupCell(i));
+    grid.appendChild(cell);
+  }
+  document.getElementById('sp-count').textContent = setupMarked.size;
+}
+
+function toggleSetupCell(i) {
+  if (setupMarked.has(i)) setupMarked.delete(i);
+  else                    setupMarked.add(i);
+  buildSetupGrid();
+}
+
+function handleImageUpload(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  document.getElementById('img-file-name').textContent = file.name;
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    setupBgUrl = e.target.result;
+    const thumb = document.getElementById('bg-thumb');
+    thumb.innerHTML = '';
+    const img = document.createElement('img');
+    img.src = e.target.result;
+    thumb.appendChild(img);
+  };
+  reader.readAsDataURL(file);
+}
+
+function clearImage() {
+  setupBgUrl = '';
+  bgDataUrl  = '';
+  document.getElementById('img-file-name').textContent = 'No file selected';
+  document.getElementById('img-file-input').value = '';
+  document.getElementById('bg-thumb').innerHTML = '<span>No image loaded</span>';
+}
+
+/* ════════════════════════════════════════
+   INIT
+════════════════════════════════════════ */
+buildAxisLabels();
+renderGrid(undefined);
+updateDashboard();
+</script>
+</body>
+</html>
