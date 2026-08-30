@@ -1549,13 +1549,13 @@
   <div id="lobby-idle">
     <div class="lobby-row">
       <button class="btn btn-gold" id="btn-create" onclick="createRoom()" style="flex:1;min-width:150px;">➕ Create Room</button>
-      <input class="code-input" id="join-code" maxlength="4" placeholder="CODE"
+      <input class="code-input" id="join-code" maxlength="5" placeholder="CODE"
              autocomplete="off" autocapitalize="characters" spellcheck="false"
              onkeydown="if(event.key==='Enter')joinRoom()">
       <button class="btn btn-navy" id="btn-join" onclick="joinRoom()" style="flex:1;min-width:130px;">🔗 Join Room</button>
     </div>
     <div class="lobby-row" style="font-size:.72rem;color:var(--text-med);">
-      One of you creates a room and reads out the 4-letter code; the other types it in. You each place your own fleet on your own screen.
+      One of you creates a room and reads out the 5-letter code; the other types it in. You each place your own fleet on your own screen.
     </div>
   </div>
 
@@ -2037,7 +2037,7 @@
 
       if (isOnline()) {
         /* only the defender's device knows its fleet, so ask rather than resolve */
-        if (currentTurn !== myRole || awaitingResult || !conn) return;
+        if (currentTurn !== myRole || awaitingResult || !netConnected()) return;
         awaitingResult = true;
         send({ t: 'shot', i: index });
         renderAll();                    /* board stays locked until the answer lands */
@@ -2133,8 +2133,7 @@
       const el = document.getElementById('timer-val');
       el.classList.remove('danger');
       el.textContent = timeLeft + 's';
-      /* online the host owns the clock and broadcasts it, so the two never drift */
-      if (isOnline() && !isHost) return;
+      /* both sides count down locally; the host's state snapshots correct any drift */
       timerHandle = setInterval(tickTimer, 1000);
     }
 
@@ -2149,10 +2148,12 @@
       const el = document.getElementById('timer-val');
       el.textContent = timeLeft + 's';
       if (timeLeft <= 10) el.classList.add('danger');
-      if (isOnline()) send({ t: 'tick', left: timeLeft });
       if (timeLeft <= 0) {
         clearInterval(timerHandle);
-        if (isOnline()) send({ t: 'over', reason: 'TIME_EXPIRED' });
+        /* both sides count down locally; only the host declares time up, so a
+           slightly fast clock on one device cannot end the round early */
+        if (isOnline() && !isHost) { timeLeft = 0; return; }
+        if (isOnline()) send({ t: 'over', reason: 'TIME_EXPIRED', ...finalBoards() });
         endGame('TIME_EXPIRED');
       }
     }
@@ -2183,6 +2184,12 @@
     function checkVictory(who) {
       const s = getStats(who);
       if (s.target > 0 && s.hits >= s.target) {
+        /* both devices reach this independently, but say it out loud anyway so a
+           lost result message cannot leave one screen still playing — and carry
+           the final board so the two scoreboards cannot disagree */
+        if (isOnline() && !gameOver) {
+          send({ t: 'over', reason: 'FLEET_CLEARED', clearedBy: who, ...finalBoards() });
+        }
         endGame('FLEET_CLEARED', who);
         return true;
       }
@@ -2318,7 +2325,7 @@
     ════════════════════════════════════════ */
     function startGame() {
       if (isOnline()) {
-        if (!conn || !conn.open) { showToast('Not connected to another player yet.'); return; }
+        if (!netConnected()) { showToast('The other player has not joined yet.'); return; }
         if (!iAmReady) { showToast('Lock in your own fleet first.'); return; }
         if (!theyAreReady) { showToast('Waiting for the other player to lock in their fleet.'); return; }
         if (!isHost) { showToast('The player who created the room starts the game.'); return; }
@@ -2337,6 +2344,12 @@
       beginRound(timerSecs);
     }
 
+    function showControlsForRunning() {
+      document.getElementById('btn-start').style.display = 'none';
+      document.getElementById('btn-setup').style.display = 'none';
+      document.getElementById('btn-restart').style.display = '';
+    }
+
     /* the part of a start that both devices run */
     function beginRound(secs) {
       timerSecs = secs;
@@ -2349,9 +2362,7 @@
       board.TEAM.shots = new Array(GRID * GRID).fill(null);
       board.GM.shots = new Array(GRID * GRID).fill(null);
 
-      document.getElementById('btn-start').style.display = 'none';
-      document.getElementById('btn-setup').style.display = 'none';
-      document.getElementById('btn-restart').style.display = '';
+      showControlsForRunning();
       document.getElementById('result-overlay').classList.remove('show');
       document.getElementById('turn-switch-overlay').classList.remove('show');
 
@@ -2769,23 +2780,54 @@
        is never sent over the wire and cannot be
        read out of the other player's traffic.
     ════════════════════════════════════════ */
-    const PEERJS_SRC = 'https://unpkg.com/peerjs@1.5.5/dist/peerjs.min.js';
-    const ROOM_PREFIX = 'shipopoly-vop-';
+    /* ════════════════════════════════════════
+       ONLINE PLAY — relayed over plain HTTPS
+
+       Both devices talk to a public message relay
+       (ntfy.sh) instead of to each other: each one
+       only makes ordinary outbound web requests, so
+       the two players can sit on completely separate
+       networks — home wifi, office, mobile data —
+       with no direct connection between them.
+
+       Each device still keeps its own fleet and only
+       ever answers "hit" or "miss", so a fleet is
+       never sent over the wire.
+    ════════════════════════════════════════ */
+    const RELAY_BASE = 'https://ntfy.sh/';
+    const TOPIC_PREFIX = 'shipopoly-vop-';
     const CODE_LETTERS = 'ABCDEFGHJKLMNPQRSTUVWXYZ';   /* no I or O — misheard when read aloud */
+    const CODE_LEN = 5;
+    const HELLO_RETRY_MS = 3000;
+    const HELLO_GIVEUP_MS = 12000;
+    const SNAPSHOT_MS = 10000;   /* host reposts the whole state, healing any lost message */
+    const PING_MS = 25000;
+    const PEER_LOST_MS = 70000;
 
     let netMode = 'local';        /* 'local' | 'online' */
     let myRole = 'TEAM';          /* the side this device controls when online */
     let isHost = false;
-    let peer = null;
-    let conn = null;
     let roomCode = '';
-    let peerScriptLoaded = false;
+    let stream = null;            /* EventSource */
+    let myId = '';
+    let peerId = '';
+    let peerLastSeen = 0;
+    let helloTimer = null, helloStarted = 0;
+    let snapshotTimer = null, pingTimer = null, watchTimer = null;
     let iAmReady = false;
     let theyAreReady = false;
     let awaitingResult = false;   /* a shot is in flight, board stays locked */
 
     function isOnline() { return netMode === 'online'; }
     function myTurn() { return !isOnline() || currentTurn === myRole; }
+    function netConnected() { return isOnline() && !!stream && !!peerId; }
+
+    /* fleet sizes are public; only positions are secret, so the opponent's
+       total arrives with their "ready" message rather than being counted */
+    function fleetTotal(side) {
+      if (isOnline() && side !== myRole) return board[side].total || 0;
+      return board[side].fleet.size;
+    }
 
     /* Online, the opponent's grid lives on their device and this one must never
        hold a fleet for it. Clearing both sides also drops anything left over from
@@ -2800,13 +2842,6 @@
       awaitingResult = false;
     }
 
-    /* fleet sizes are public; only positions are secret, so the opponent's
-       total arrives with their "ready" message rather than being counted */
-    function fleetTotal(side) {
-      if (isOnline() && side !== myRole) return board[side].total || 0;
-      return board[side].fleet.size;
-    }
-
     function setMode(mode) {
       if (gameRunning) { showToast('Finish or restart the current game first.'); return; }
       if (mode === netMode) return;
@@ -2818,7 +2853,6 @@
       document.getElementById('mode-online').classList.toggle('active', mode === 'online');
       document.getElementById('lobby').classList.toggle('show', mode === 'online');
 
-      iAmReady = theyAreReady = false;
       if (mode === 'online') {
         clearOpponentBoard();
       } else {
@@ -2829,7 +2863,7 @@
       renderAll();
       updateDashboard();
       addLog('System', mode === 'online'
-        ? 'Online mode. Create a room or join one with a 4-letter code.'
+        ? 'Online mode. Create a room or join one with the room code.'
         : 'Pass & play mode. Both fleets are placed on this device.', 'lc-sys');
     }
 
@@ -2840,7 +2874,7 @@
       document.getElementById('net-msg').textContent = msg;
 
       const pill = document.getElementById('role-pill');
-      if (isOnline() && conn) {
+      if (isOnline() && peerId) {
         pill.style.display = '';
         pill.textContent = 'You are ' + NAME[myRole];
         pill.className = 'role-pill ' + (myRole === 'TEAM' ? 'rp-team' : 'rp-gm');
@@ -2856,109 +2890,137 @@
 
     function randomCode() {
       let s = '';
-      for (let i = 0; i < 4; i++) s += CODE_LETTERS[Math.floor(Math.random() * CODE_LETTERS.length)];
+      for (let i = 0; i < CODE_LEN; i++) s += CODE_LETTERS[Math.floor(Math.random() * CODE_LETTERS.length)];
       return s;
     }
 
-    function loadPeerJs() {
-      if (peerScriptLoaded) return Promise.resolve();
-      return new Promise((resolve, reject) => {
-        const s = document.createElement('script');
-        s.src = PEERJS_SRC;
-        s.onload = () => { peerScriptLoaded = true; resolve(); };
-        s.onerror = () => reject(new Error('Could not load the connection library. Check your internet.'));
-        document.head.appendChild(s);
-      });
+    function randomId() { return Math.random().toString(36).slice(2, 10); }
+
+    /* ── transport ── */
+    function topicUrl() { return RELAY_BASE + TOPIC_PREFIX + roomCode; }
+
+    function send(obj) {
+      if (!isOnline() || !roomCode) return;
+      obj.from = myId;
+      /* keepalive lets the goodbye still go out while the tab is closing */
+      fetch(topicUrl(), { method: 'POST', body: JSON.stringify(obj), keepalive: true })
+        .catch(() => netStatus('error', 'Could not reach the relay — check your internet.'));
     }
 
-    async function createRoom() {
-      try {
-        netStatus('waiting', 'Loading connection library…');
-        await loadPeerJs();
-      } catch (e) { netStatus('error', e.message); return; }
+    function openStream() {
+      closeStream();
+      stream = new EventSource(topicUrl() + '/sse');
 
+      stream.onmessage = (ev) => {
+        let envelope, payload;
+        try { envelope = JSON.parse(ev.data); } catch (e) { return; }
+        if (envelope.event !== 'message' || !envelope.message) return;
+        try { payload = JSON.parse(envelope.message); } catch (e) { return; }
+        if (!payload || payload.from === myId) return;      /* ignore our own echo */
+        peerLastSeen = Date.now();
+        onNetMessage(payload);
+      };
+
+      stream.onerror = () => {
+        /* EventSource retries on its own; say so rather than looking dead */
+        if (!peerId) return;
+        netStatus('waiting', 'Reconnecting to the relay…');
+      };
+
+      stream.onopen = () => {
+        if (peerId) {
+          netStatus('live', 'Connected.');
+          send({ t: 'resync' });     /* catch up on anything missed while away */
+        }
+      };
+    }
+
+    function closeStream() {
+      if (stream) { try { stream.close(); } catch (e) {} stream = null; }
+    }
+
+    function startTimers() {
+      stopTimers();
+      pingTimer = setInterval(() => { if (peerId) send({ t: 'ping' }); }, PING_MS);
+      snapshotTimer = setInterval(() => {
+        if (isHost && peerId && gameRunning && !gameOver) send(stateSnapshot());
+      }, SNAPSHOT_MS);
+      watchTimer = setInterval(() => {
+        if (peerId && Date.now() - peerLastSeen > PEER_LOST_MS) {
+          netStatus('error', 'No word from the other player for a while — are they still there?');
+        }
+      }, 10000);
+    }
+
+    function stopTimers() {
+      clearInterval(pingTimer); clearInterval(snapshotTimer); clearInterval(watchTimer);
+      clearInterval(helloTimer);
+      pingTimer = snapshotTimer = watchTimer = helloTimer = null;
+    }
+
+    /* ── rooms ── */
+    function createRoom() {
+      myId = randomId();
       roomCode = randomCode();
       isHost = true;
       myRole = 'GM';                 /* whoever hosts runs the station; swap if you like */
+      peerId = '';
       clearOpponentBoard();
+
       document.getElementById('room-code').textContent = roomCode;
       lobbyView(true);
-      netStatus('waiting', `Room ${roomCode} open — waiting for the other player…`);
-
-      peer = new Peer(ROOM_PREFIX + roomCode);
-      peer.on('open', () => netStatus('waiting', `Room ${roomCode} open — waiting for the other player…`));
-      peer.on('connection', (c) => {
-        if (conn) { c.close(); return; }        /* room is a two-player room */
-        conn = c;
-        wireConn(c);
-      });
-      peer.on('error', (err) => {
-        if (err.type === 'unavailable-id') {
-          netStatus('error', 'That room code is already taken — try creating again.');
-        } else {
-          netStatus('error', 'Connection error: ' + err.type);
-        }
-      });
+      netStatus('waiting', `Room ${roomCode} open — read the code out to the other player.`);
+      openStream();
+      startTimers();
+      renderAll();
+      updateDashboard();
     }
 
-    async function joinRoom() {
-      const input = document.getElementById('join-code');
-      const code = (input.value || '').trim().toUpperCase();
-      if (code.length !== 4) { netStatus('error', 'Enter the 4-letter room code.'); return; }
+    function joinRoom() {
+      const field = document.getElementById('join-code');
+      const code = (field.value || '').trim().toUpperCase();
+      if (code.length !== CODE_LEN) {
+        netStatus('error', `Enter the ${CODE_LEN}-letter room code.`);
+        return;
+      }
 
-      try {
-        netStatus('waiting', 'Loading connection library…');
-        await loadPeerJs();
-      } catch (e) { netStatus('error', e.message); return; }
-
+      myId = randomId();
       roomCode = code;
       isHost = false;
       myRole = 'TEAM';
+      peerId = '';
       clearOpponentBoard();
+
       document.getElementById('room-code').textContent = roomCode;
       lobbyView(true);
-      netStatus('waiting', `Connecting to room ${roomCode}…`);
+      netStatus('waiting', `Knocking on room ${roomCode}…`);
+      openStream();
+      startTimers();
+      renderAll();
+      updateDashboard();
 
-      peer = new Peer();
-      peer.on('open', () => {
-        conn = peer.connect(ROOM_PREFIX + roomCode, { reliable: true });
-        wireConn(conn);
-      });
-      peer.on('error', (err) => {
-        netStatus('error', err.type === 'peer-unavailable'
-          ? `No open room called ${roomCode}. Check the code, or ask them to create it again.`
-          : 'Connection error: ' + err.type);
-      });
-    }
-
-    function wireConn(c) {
-      c.on('open', () => {
-        netStatus('live', 'Connected. Place your fleet, then lock it in.');
-        if (isHost) send({ t: 'hello', hostRole: myRole });
-        sendReadyIfSet();
-        renderAll();
-        updateDashboard();
-      });
-      c.on('data', onNetMessage);
-      c.on('close', () => {
-        netStatus('error', 'The other player disconnected.');
-        conn = null;
-        theyAreReady = false;
-        if (gameRunning) { clearInterval(timerHandle); gameRunning = false; }
-        renderAll();
-        updateDashboard();
-      });
-      c.on('error', () => netStatus('error', 'Connection dropped.'));
+      /* the relay has no idea whether a room exists, so ask until someone answers */
+      helloStarted = Date.now();
+      const knock = () => {
+        if (peerId) { clearInterval(helloTimer); helloTimer = null; return; }
+        if (Date.now() - helloStarted > HELLO_GIVEUP_MS) {
+          clearInterval(helloTimer); helloTimer = null;
+          netStatus('error', `Nobody answered in room ${roomCode}. Check the code, and make sure they pressed Create Room.`);
+          return;
+        }
+        send({ t: 'hello' });
+      };
+      knock();
+      helloTimer = setInterval(knock, HELLO_RETRY_MS);
     }
 
     function leaveRoom(quiet) {
-      if (conn) { try { send({ t: 'bye' }); conn.close(); } catch (e) {} }
-      if (peer) { try { peer.destroy(); } catch (e) {} }
-      conn = null; peer = null; isHost = false; roomCode = '';
+      if (roomCode && peerId) send({ t: 'bye' });
+      stopTimers();
+      closeStream();
+      peerId = ''; roomCode = ''; isHost = false;
       iAmReady = theyAreReady = false;
       awaitingResult = false;
-      board.TEAM.total = board.TEAM.fleet.size;
-      board.GM.total = board.GM.fleet.size;
       lobbyView(false);
       if (!quiet) {
         netStatus('', 'Not connected.');
@@ -2980,6 +3042,7 @@
 
     function swapSides() {
       if (gameRunning) { showToast('Cannot swap sides mid-game.'); return; }
+      if (!peerId) { showToast('Wait until the other player has joined.'); return; }
       send({ t: 'swap' });
       myRole = OPP[myRole];
       clearOpponentBoard();
@@ -2988,21 +3051,81 @@
       updateDashboard();
     }
 
-    function send(obj) {
-      if (conn && conn.open) { try { conn.send(obj); } catch (e) {} }
-    }
-
     function sendReadyIfSet() {
       if (!iAmReady) return;
-      send({ t: 'ready', total: board[myRole].fleet.size, ships: findShips(board[myRole].fleet).length });
+      send({ t: 'ready', role: myRole, total: board[myRole].fleet.size, ships: findShips(board[myRole].fleet).length });
+    }
+
+    /* ── whole-state snapshot: the host reposts this so a dropped
+         message can never leave the two screens disagreeing ── */
+    const SHOT_CHARS = { 'HIT': 'H', 'MISS': 'M' };
+    function packShots(arr) { return arr.map(s => SHOT_CHARS[s] || '.').join(''); }
+    function unpackShots(str) {
+      return str.split('').map(c => c === 'H' ? 'HIT' : c === 'M' ? 'MISS' : null);
+    }
+
+    /* the closing scoreboard, sent with "over" so both screens tally the same */
+    function finalBoards() {
+      return { tShots: packShots(board.TEAM.shots), gShots: packShots(board.GM.shots) };
+    }
+
+    function stateSnapshot() {
+      return {
+        t: 'state',
+        turn: currentTurn, streak: hitStreak,
+        running: gameRunning, over: gameOver,
+        left: timeLeft, secs: timerSecs,
+        tShots: packShots(board.TEAM.shots), gShots: packShots(board.GM.shots),
+        tTotal: board.TEAM.total || board.TEAM.fleet.size,
+        gTotal: board.GM.total || board.GM.fleet.size
+      };
+    }
+
+    function applySnapshot(m) {
+      currentTurn = m.turn;
+      hitStreak = m.streak || 0;
+      timerSecs = m.secs || timerSecs;
+      timeLeft = m.left;
+      board.TEAM.shots = unpackShots(m.tShots);
+      board.GM.shots = unpackShots(m.gShots);
+      /* only the opponent's total is taken on trust; our own fleet is ours to count */
+      board[OPP[myRole]].total = (OPP[myRole] === 'TEAM') ? m.tTotal : m.gTotal;
+      board[myRole].total = board[myRole].fleet.size;
+
+      if (m.running && !gameRunning && !m.over) {
+        gameRunning = true; gameOver = false;
+        showControlsForRunning();
+        startTimer();
+      }
+      gameRunning = m.running;
+      awaitingResult = false;
+      document.getElementById('timer-val').textContent = timeLeft + 's';
+      document.getElementById('timer-val').classList.toggle('danger', timeLeft <= 10);
+      renderAll();
+      updateDashboard();
     }
 
     function onNetMessage(m) {
       if (!m || typeof m !== 'object') return;
 
+      /* first sighting of the other player */
+      if (!peerId && m.from && m.t !== 'bye') {
+        peerId = m.from;
+        netStatus('live', 'Connected. Place your fleet, then lock it in.');
+        if (isHost) send({ t: 'welcome', hostRole: myRole });
+        sendReadyIfSet();
+        renderAll();
+        updateDashboard();
+      }
+
       switch (m.t) {
         case 'hello':
-          /* the host announces which side it took; this device takes the other */
+          /* a joiner is knocking — answer so they know the room is live */
+          if (isHost) { send({ t: 'welcome', hostRole: myRole }); sendReadyIfSet(); }
+          break;
+
+        case 'welcome':
+          clearInterval(helloTimer); helloTimer = null;
           myRole = OPP[m.hostRole];
           clearOpponentBoard();
           netStatus('live', 'Connected. Place your fleet, then lock it in.');
@@ -3025,7 +3148,7 @@
           addLog('System', `${NAME[OPP[myRole]]} locked in ${m.total} blocks in ${m.ships} battleship${m.ships === 1 ? '' : 's'}.`, 'lc-sys');
           netStatus('live', bothReady()
             ? (isHost ? 'Both fleets ready — press Start Game.' : 'Both fleets ready — waiting for the host to start.')
-            : 'Waiting for you to lock in your fleet.');
+            : 'Waiting for the other player to lock in their fleet.');
           updateDashboard();
           break;
 
@@ -3035,12 +3158,13 @@
           break;
 
         case 'shot': {
-          /* they fired at me — my device is the only one that knows my fleet */
+          /* they fired at me — this device is the only one that knows my fleet */
           const mine = board[myRole];
-          if (!gameRunning || gameOver || mine.shots[m.i] !== null) return;
-          const isHit = mine.fleet.has(m.i);
-          send({ t: 'result', i: m.i, hit: isHit });
-          applyShot(myRole, m.i, isHit);
+          if (!gameRunning || gameOver) return;
+          const already = mine.shots[m.i] !== null;
+          const isHit = already ? (mine.shots[m.i] === 'HIT') : mine.fleet.has(m.i);
+          send({ t: 'result', i: m.i, hit: isHit });      /* answer even on a repeat, in case the first was lost */
+          if (!already) applyShot(myRole, m.i, isHit);
           break;
         }
 
@@ -3049,22 +3173,37 @@
           applyShot(OPP[myRole], m.i, m.hit);
           break;
 
-        case 'tick':
-          timeLeft = m.left;
-          document.getElementById('timer-val').textContent = timeLeft + 's';
-          document.getElementById('timer-val').classList.toggle('danger', timeLeft <= 10);
+        case 'resync':
+          if (isHost) send(stateSnapshot());
+          break;
+
+        case 'state':
+          if (!isHost && !gameOver) applySnapshot(m);
           break;
 
         case 'over':
-          if (!gameOver) endGame(m.reason, m.clearedBy);
+          if (gameOver) break;
+          /* adopt the closing board first, so a shot lost in transit still counts */
+          if (m.tShots && m.gShots) {
+            board.TEAM.shots = unpackShots(m.tShots);
+            board.GM.shots = unpackShots(m.gShots);
+          }
+          endGame(m.reason, m.clearedBy);
           break;
 
         case 'reset':
           doRestart(false);
           break;
 
+        case 'ping':
+          break;
+
         case 'bye':
+          peerId = '';
           netStatus('error', 'The other player left the room.');
+          if (gameRunning) { clearInterval(timerHandle); }
+          renderAll();
+          updateDashboard();
           break;
       }
     }
