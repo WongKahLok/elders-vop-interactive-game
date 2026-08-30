@@ -967,6 +967,17 @@
     }
     .mus-btn:hover { border-color: var(--navy); background: var(--cream-dark); }
     .mus-btn.playing { background: var(--navy); border-color: var(--gold); color: var(--gold-light); }
+    .mus-btn.on { background: #e8f8f0; border-color: var(--green); color: var(--green); }
+
+    /* the other device blocked autoplay until it is tapped — make the button ask */
+    .mus-btn.needs-tap {
+      background: var(--gold); border-color: #8b6914; color: white;
+      animation: tapPulse 1.1s ease-in-out infinite;
+    }
+    @keyframes tapPulse {
+      0%, 100% { box-shadow: 0 0 0 0 rgba(200,150,12,.55); }
+      50%      { box-shadow: 0 0 0 7px rgba(200,150,12,0); }
+    }
 
     .mus-title {
       flex: 1;
@@ -1585,6 +1596,8 @@
   <button class="mus-btn" onclick="saveBgm()" title="Save this track — it is remembered next time">💾 Save</button>
   <input class="mus-vol" id="mus-vol" type="range" min="0" max="100" value="35"
          oninput="setBgmVolume(this.value)" title="Volume">
+  <button class="mus-btn" id="mus-share" onclick="toggleShareMusic()" style="display:none"
+          title="Play the same track on the other player's device">🔗</button>
   <button class="mus-btn" onclick="clearBgm()" title="Forget the saved track">🗑</button>
 </div>
 <div id="yt-host"></div>
@@ -2862,6 +2875,7 @@
 
       renderAll();
       updateDashboard();
+      updateMusicUi();
       addLog('System', mode === 'online'
         ? 'Online mode. Create a room or join one with the room code.'
         : 'Pass & play mode. Both fleets are placed on this device.', 'lc-sys');
@@ -2941,7 +2955,14 @@
 
     function startTimers() {
       stopTimers();
-      pingTimer = setInterval(() => { if (peerId) send({ t: 'ping' }); }, PING_MS);
+      pingTimer = setInterval(() => {
+        if (!peerId) return;
+        const msg = { t: 'ping' };
+        /* the heartbeat carries the music position too, so the two tracks are
+           nudged back together even while sitting in the lobby */
+        if (isHost && shareMusic && bgmVideoId) msg.music = musicState();
+        send(msg);
+      }, PING_MS);
       snapshotTimer = setInterval(() => {
         if (isHost && peerId && gameRunning && !gameOver) send(stateSnapshot());
       }, SNAPSHOT_MS);
@@ -3077,7 +3098,10 @@
         left: timeLeft, secs: timerSecs,
         tShots: packShots(board.TEAM.shots), gShots: packShots(board.GM.shots),
         tTotal: board.TEAM.total || board.TEAM.fleet.size,
-        gTotal: board.GM.total || board.GM.fleet.size
+        gTotal: board.GM.total || board.GM.fleet.size,
+        /* riding along with the state keeps the two tracks from drifting apart
+           without spending extra messages on the relay */
+        music: (shareMusic && bgmVideoId) ? musicState() : null
       };
     }
 
@@ -3099,6 +3123,7 @@
       }
       gameRunning = m.running;
       awaitingResult = false;
+      if (m.music) applyRemoteMusic(m.music);
       document.getElementById('timer-val').textContent = timeLeft + 's';
       document.getElementById('timer-val').classList.toggle('danger', timeLeft <= 10);
       renderAll();
@@ -3114,14 +3139,29 @@
         netStatus('live', 'Connected. Place your fleet, then lock it in.');
         if (isHost) send({ t: 'welcome', hostRole: myRole });
         sendReadyIfSet();
+        /* the music is handed over in the "hello" reply, not here, so a joiner
+           cannot receive two copies at once and race to build two players */
+        updateMusicUi();
         renderAll();
         updateDashboard();
       }
 
       switch (m.t) {
         case 'hello':
-          /* a joiner is knocking — answer so they know the room is live */
-          if (isHost) { send({ t: 'welcome', hostRole: myRole }); sendReadyIfSet(); }
+          /* A joiner is knocking — answer so they know the room is live. This also
+             covers someone rejoining after a reload, where the id has changed but
+             this device still had the old one on file. */
+          if (isHost) {
+            peerId = m.from;
+            peerLastSeen = Date.now();
+            send({ t: 'welcome', hostRole: myRole });
+            sendReadyIfSet();
+            if (bgmVideoId) broadcastMusic();   /* hand them whatever is playing */
+            if (gameRunning) send(stateSnapshot());
+            netStatus('live', 'Connected. Place your fleet, then lock it in.');
+            renderAll();
+            updateDashboard();
+          }
           break;
 
         case 'welcome':
@@ -3195,7 +3235,12 @@
           doRestart(false);
           break;
 
+        case 'music':
+          applyRemoteMusic(m);
+          break;
+
         case 'ping':
+          if (m.music) applyRemoteMusic(m.music);
           break;
 
         case 'bye':
@@ -3232,6 +3277,13 @@
     let bgmVideoId = '';
     let bgmVolume = 35;
     let bgmPlaying = false;
+    let shareMusic = true;        /* online: the same track plays on both devices */
+    let applyingRemote = false;   /* stops an incoming change being echoed back */
+    let musicBlocked = false;     /* this device has not been tapped, so audio is barred */
+    let musicError = false;       /* the video itself will not play — private, deleted, blocked */
+    let playerPromise = null;     /* in-flight player construction, shared by callers */
+    let pendingRemoteMusic = null;/* newest instruction to apply once the current one lands */
+    const DRIFT_TOLERANCE = 2.5;  /* seconds out of step before seeking to catch up */
 
     function readBgmPrefs() {
       try {
@@ -3283,10 +3335,24 @@
 
     async function ensurePlayer() {
       if (!bgmVideoId) return null;
+      if (ytPlayer && ytPlayer.loadVideoById) return ytPlayer;
+      /* Two messages arriving together must not each build a player — the second
+         would take over the first one's element and neither would report ready. */
+      if (playerPromise) return playerPromise;
+
+      playerPromise = buildPlayer();
+      try { return await playerPromise; }
+      finally { playerPromise = null; }
+    }
+
+    async function buildPlayer() {
       await loadYouTubeApi();
       if (ytPlayer && ytPlayer.loadVideoById) return ytPlayer;
 
       return new Promise((resolve) => {
+        let settled = false;
+        const done = () => { if (!settled) { settled = true; resolve(ytPlayer); } };
+
         ytPlayer = new YT.Player('yt-host', {
           height: '1', width: '1',
           videoId: bgmVideoId,
@@ -3296,15 +3362,26 @@
             modestbranding: 1, rel: 0
           },
           events: {
-            onReady: () => { ytPlayer.setVolume(bgmVolume); resolve(ytPlayer); },
+            onReady: () => { ytPlayer.setVolume(bgmVolume); done(); },
             onStateChange: (e) => {
               if (e.data === YT.PlayerState.ENDED) { ytPlayer.seekTo(0); ytPlayer.playVideo(); }
               bgmPlaying = (e.data === YT.PlayerState.PLAYING);
               updateMusicUi();
             },
-            onError: () => { showToast('That video cannot be played here — try another.'); }
+            onError: () => {
+              /* deleted, private, or blocked from embedding — not an autoplay problem */
+              musicError = true;
+              musicBlocked = false;
+              bgmPlaying = false;
+              updateMusicUi();
+              showToast('That video cannot be played here — try a different link.');
+              done();
+            }
           }
         });
+
+        /* never leave a caller waiting on a player that will not report in */
+        setTimeout(done, 8000);
       });
     }
 
@@ -3318,9 +3395,22 @@
       try {
         const p = await ensurePlayer();
         if (!p) return;
-        if (bgmPlaying) { p.pauseVideo(); bgmPlaying = false; }
-        else { p.setVolume(bgmVolume); p.playVideo(); bgmPlaying = true; }
-        updateMusicUi();
+        if (bgmPlaying && !musicBlocked) {
+          p.pauseVideo();
+          bgmPlaying = false;
+          musicBlocked = false;
+          updateMusicUi();
+        } else {
+          /* this click is the gesture the browser was waiting for */
+          musicBlocked = false;
+          musicError = false;
+          p.setVolume(bgmVolume);
+          p.playVideo();
+          bgmPlaying = true;
+          updateMusicUi();
+          await confirmPlaying(p);
+        }
+        broadcastMusic();
       } catch (e) {
         showToast(e.message || 'Could not start the music.');
       }
@@ -3335,8 +3425,12 @@
       bgmVideoId = id;
       writeBgmPrefs();
       field.value = '';
+      musicBlocked = false;
+      musicError = false;
       updateMusicUi();
-      showToast('Track saved — it will load automatically next time.');
+      showToast(shareMusic && netConnected()
+        ? 'Track saved and shared — it will load automatically next time.'
+        : 'Track saved — it will load automatically next time.');
 
       try {
         const p = await ensurePlayer();
@@ -3346,16 +3440,21 @@
         p.playVideo();
         bgmPlaying = true;
         updateMusicUi();
+        await confirmPlaying(p);
       } catch (e) { /* saved regardless; playback can be retried with ▶ */ }
+
+      broadcastMusic();
     }
 
     function clearBgm() {
       bgmVideoId = '';
       bgmPlaying = false;
+      musicBlocked = false;
+      musicError = false;
       try { localStorage.removeItem(BGM_KEY); } catch (e) {}
       if (ytPlayer && ytPlayer.stopVideo) ytPlayer.stopVideo();
       updateMusicUi();
-      showToast('Saved track forgotten.');
+      if (!applyingRemote) { showToast('Saved track forgotten.'); broadcastMusic(); }
     }
 
     function setBgmVolume(v) {
@@ -3367,12 +3466,133 @@
     function updateMusicUi() {
       const btn = document.getElementById('mus-toggle');
       const title = document.getElementById('mus-title');
+      const share = document.getElementById('mus-share');
+
       btn.textContent = bgmPlaying ? '⏸' : '▶';
-      btn.classList.toggle('playing', bgmPlaying);
-      title.innerHTML = bgmVideoId
-        ? (bgmPlaying ? '♪ <b>Playing</b> — ' : 'Saved track — ') + '<b>' + bgmVideoId + '</b>'
-        : 'No track saved';
+      btn.classList.toggle('playing', bgmPlaying && !musicBlocked);
+      btn.classList.toggle('needs-tap', musicBlocked && !musicError);
+
+      if (musicError) {
+        title.innerHTML = '⚠ <b>Track unavailable</b> — try a different link';
+      } else if (musicBlocked) {
+        title.innerHTML = '♪ <b>Tap ▶</b> to join the music';
+      } else {
+        title.innerHTML = bgmVideoId
+          ? (bgmPlaying ? '♪ <b>Playing</b> — ' : 'Saved track — ') + '<b>' + bgmVideoId + '</b>'
+          : 'No track saved';
+      }
+
+      /* sharing only means anything with someone on the other end */
+      share.style.display = isOnline() ? '' : 'none';
+      share.classList.toggle('on', shareMusic);
+      share.title = shareMusic
+        ? 'Music is shared with the other player — click to keep it to this device'
+        : 'Music is playing on this device only — click to share it';
+
       document.getElementById('mus-vol').value = bgmVolume;
+    }
+
+    /* ── sharing the track across the room ──
+       Only the choice of track and play/pause travel; volume stays a local
+       comfort setting, so each player can be as loud or quiet as they like. */
+    function toggleShareMusic() {
+      shareMusic = !shareMusic;
+      updateMusicUi();
+      if (shareMusic && netConnected()) {
+        broadcastMusic();
+        showToast('Music shared with the other player.');
+      } else {
+        showToast('Music is now only on this device.');
+      }
+    }
+
+    function musicState() {
+      let pos = 0;
+      try { if (ytPlayer && ytPlayer.getCurrentTime) pos = ytPlayer.getCurrentTime() || 0; } catch (e) {}
+      return { videoId: bgmVideoId, playing: bgmPlaying, pos, at: Date.now() };
+    }
+
+    function broadcastMusic() {
+      if (!shareMusic || applyingRemote || !netConnected()) return;
+      send(Object.assign({ t: 'music' }, musicState()));
+    }
+
+    /* where the other device's track should be by now, allowing for the trip */
+    function expectedPos(m) {
+      return (m.pos || 0) + (m.playing ? Math.max(0, Date.now() - (m.at || Date.now())) / 1000 : 0);
+    }
+
+    async function applyRemoteMusic(m) {
+      if (!shareMusic || !m) return;
+      /* one at a time; if more arrive mid-flight only the newest matters */
+      if (applyingRemote) { pendingRemoteMusic = m; return; }
+
+      if (!m.videoId) {                       /* they cleared the track */
+        if (bgmVideoId) { applyingRemote = true; clearBgm(); applyingRemote = false; }
+        return;
+      }
+
+      applyingRemote = true;
+      try {
+        const changed = m.videoId !== bgmVideoId;
+        if (changed) {
+          bgmVideoId = m.videoId;
+          musicError = false;
+          writeBgmPrefs();                    /* their track becomes this device's saved one too */
+        }
+
+        const p = await ensurePlayer();
+        if (!p) return;
+        if (changed && p.loadVideoById) p.loadVideoById({ videoId: bgmVideoId });
+        p.setVolume(bgmVolume);
+
+        if (m.playing) {
+          const target = expectedPos(m);
+          let here = 0;
+          try { here = p.getCurrentTime() || 0; } catch (e) {}
+          if (changed || Math.abs(here - target) > DRIFT_TOLERANCE) p.seekTo(target, true);
+          p.playVideo();
+          const started = await confirmPlaying(p);
+
+          /* Buffering swallows a few seconds between the seek and the first sound,
+             so once it is actually playing, line it up again from a fresh reading. */
+          if (started) {
+            const target2 = expectedPos(m);
+            let here2 = 0;
+            try { here2 = p.getCurrentTime() || 0; } catch (e) {}
+            if (Math.abs(here2 - target2) > DRIFT_TOLERANCE) p.seekTo(target2, true);
+          }
+        } else {
+          p.pauseVideo();
+          bgmPlaying = false;
+          musicBlocked = false;
+        }
+        updateMusicUi();
+      } catch (e) {
+        /* nothing to do — the tap prompt covers it */
+      } finally {
+        applyingRemote = false;
+        const next = pendingRemoteMusic;
+        pendingRemoteMusic = null;
+        if (next) applyRemoteMusic(next);
+      }
+    }
+
+    /* A browser will not play audio until its own user has tapped something.
+       If the track did not actually start, stop pretending and ask for a tap. */
+    function confirmPlaying(p) {
+      return new Promise((resolve) => {
+        setTimeout(() => {
+          let state = -1;
+          try { state = p.getPlayerState(); } catch (e) {}
+          const started = state === 1 || state === 3;   /* playing or buffering */
+          musicBlocked = !started && !musicError;
+          bgmPlaying = started;
+          if (!started && !musicError) showToast('♪ Tap the ▶ button to hear the music on this device.');
+          updateMusicUi();
+          resolve(started);
+        }, 1400);
+      });
     }
 
     /* ════════════════════════════════════════
