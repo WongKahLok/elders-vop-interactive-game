@@ -796,6 +796,239 @@
       color: var(--red);
     }
 
+    /* ═══ MODE BAR + ONLINE LOBBY ════════════════════ */
+    .mode-bar {
+      display: flex;
+      gap: 8px;
+      width: 100%;
+      max-width: 1000px;
+      margin-bottom: 12px;
+      flex-wrap: wrap;
+    }
+
+    .mode-btn {
+      flex: 1;
+      min-width: 190px;
+      padding: 9px 14px;
+      border-radius: 11px;
+      border: 2px solid var(--cream-border);
+      background: white;
+      cursor: pointer;
+      font-family: inherit;
+      font-size: .78rem;
+      font-weight: 700;
+      color: var(--text-med);
+      transition: all .2s;
+      text-align: left;
+    }
+
+    .mode-btn .mb-sub {
+      display: block;
+      font-size: .65rem;
+      font-weight: 500;
+      color: var(--text-med);
+      margin-top: 2px;
+    }
+
+    .mode-btn:hover { border-color: var(--navy); }
+
+    .mode-btn.active {
+      background: linear-gradient(135deg, var(--navy), var(--navy-light));
+      border-color: var(--gold);
+      color: var(--gold-light);
+    }
+
+    .mode-btn.active .mb-sub { color: rgba(255,255,255,.6); }
+
+    /* lobby card */
+    .lobby {
+      display: none;
+      width: 100%;
+      max-width: 1000px;
+      background: white;
+      border: 2px solid var(--cream-border);
+      border-radius: 12px;
+      padding: 14px 16px;
+      margin-bottom: 14px;
+      box-shadow: 0 4px 14px rgba(0,0,0,.09);
+    }
+
+    .lobby.show { display: block; }
+
+    .lobby h3 {
+      font-size: .78rem;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: var(--navy);
+      margin-bottom: 8px;
+    }
+
+    .lobby-row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+    .lobby-row + .lobby-row { margin-top: 10px; }
+
+    .code-input {
+      flex: 1;
+      min-width: 120px;
+      padding: 9px 12px;
+      border: 2px solid var(--cream-border);
+      border-radius: 9px;
+      font-family: 'Playfair Display', serif;
+      font-size: 1.15rem;
+      font-weight: 700;
+      letter-spacing: 4px;
+      text-transform: uppercase;
+      text-align: center;
+      color: var(--navy);
+      background: var(--cream);
+      outline: none;
+      min-height: 42px;
+    }
+    .code-input:focus { border-color: var(--navy); }
+
+    /* the room code, shown big so it can be read out loud */
+    .room-code {
+      font-family: 'Playfair Display', serif;
+      font-size: 1.8rem;
+      font-weight: 900;
+      letter-spacing: 7px;
+      color: var(--navy);
+      background: var(--cream-dark);
+      border: 2px dashed var(--gold);
+      border-radius: 10px;
+      padding: 8px 16px;
+      text-align: center;
+      flex: 1;
+      min-width: 150px;
+      user-select: all;
+    }
+
+    .net-status {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      font-size: .74rem;
+      font-weight: 600;
+      color: var(--text-med);
+      margin-top: 10px;
+      padding-top: 10px;
+      border-top: 1px dashed var(--cream-border);
+      flex-wrap: wrap;
+    }
+
+    .net-dot {
+      width: 9px; height: 9px;
+      border-radius: 50%;
+      background: #b9b9b9;
+      flex-shrink: 0;
+    }
+    .net-dot.waiting { background: var(--gold); animation: blink 1.2s infinite; }
+    .net-dot.live    { background: #2ecc71; box-shadow: 0 0 8px rgba(46,204,113,.8); }
+    .net-dot.error   { background: var(--red); }
+
+    .role-pill {
+      font-size: .64rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .8px;
+      padding: 3px 9px;
+      border-radius: 20px;
+      border: 1px solid;
+    }
+    .role-pill.rp-team { color: var(--green); border-color: var(--green); background: #e8f8f0; }
+    .role-pill.rp-gm   { color: var(--red);   border-color: var(--red);   background: #fdecea; }
+
+    /* ═══ MUSIC BAR ══════════════════════════════════ */
+    .music-bar {
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      width: 100%;
+      max-width: 1000px;
+      background: white;
+      border: 2px solid var(--cream-border);
+      border-radius: 10px;
+      padding: 7px 12px;
+      margin-bottom: 12px;
+      box-shadow: 0 4px 14px rgba(0,0,0,.09);
+      flex-wrap: wrap;
+    }
+
+    .mus-btn {
+      border: 2px solid var(--cream-border);
+      background: var(--cream);
+      border-radius: 8px;
+      padding: 5px 11px;
+      cursor: pointer;
+      font-size: .9rem;
+      line-height: 1;
+      transition: all .15s;
+      color: var(--navy);
+      font-family: inherit;
+    }
+    .mus-btn:hover { border-color: var(--navy); background: var(--cream-dark); }
+    .mus-btn.playing { background: var(--navy); border-color: var(--gold); color: var(--gold-light); }
+
+    .mus-title {
+      flex: 1;
+      min-width: 110px;
+      font-size: .72rem;
+      color: var(--text-med);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .mus-title b { color: var(--navy); }
+
+    .mus-url {
+      flex: 2;
+      min-width: 150px;
+      padding: 6px 9px;
+      border: 2px solid var(--cream-border);
+      border-radius: 8px;
+      font-size: .72rem;
+      color: var(--navy);
+      background: var(--cream);
+      outline: none;
+      font-family: inherit;
+    }
+    .mus-url:focus { border-color: var(--navy); }
+
+    .mus-vol { width: 88px; accent-color: var(--gold); cursor: pointer; }
+
+    /* the YouTube player itself is never seen — it is only an audio source */
+    #yt-host {
+      position: fixed;
+      width: 1px; height: 1px;
+      left: -9999px; top: -9999px;
+      opacity: .01;
+      pointer-events: none;
+    }
+
+    /* ═══ TOAST (online turn changes) ════════════════ */
+    #toast {
+      position: fixed;
+      left: 50%;
+      bottom: 26px;
+      transform: translate(-50%, 20px);
+      background: var(--navy);
+      color: white;
+      border: 2px solid var(--gold);
+      border-radius: 12px;
+      padding: 11px 20px;
+      font-size: .84rem;
+      font-weight: 600;
+      box-shadow: 0 10px 30px rgba(0,0,0,.35);
+      z-index: 700;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity .25s, transform .25s;
+      max-width: 90vw;
+      text-align: center;
+    }
+    #toast.show { opacity: 1; transform: translate(-50%, 0); }
+    #toast .t-hit  { color: #ffb347; }
+    #toast .t-miss { color: #9fc0dd; }
+
     /* ═══ SETUP PANEL ════════════════════════════════ */
     #setup-overlay {
       display: none;
@@ -1296,7 +1529,67 @@
     <p class="subtitle">Battleship Station · Team vs Gamemaster</p>
   </header>
 
-  <!-- ══════════ DASHBOARD ══════════ -->
+  <!-- ══════════ MODE: same device or online ══════════ -->
+<div class="mode-bar">
+  <button class="mode-btn active" id="mode-local" onclick="setMode('local')">
+    👥 Pass &amp; Play
+    <span class="mb-sub">Both parties share this one device</span>
+  </button>
+  <button class="mode-btn" id="mode-online" onclick="setMode('online')">
+    🌐 Play Online
+    <span class="mb-sub">Two devices, joined by a room code</span>
+  </button>
+</div>
+
+<!-- ══════════ ONLINE LOBBY ══════════ -->
+<div class="lobby" id="lobby">
+  <h3>🌐 Online Room</h3>
+
+  <!-- before a room exists -->
+  <div id="lobby-idle">
+    <div class="lobby-row">
+      <button class="btn btn-gold" id="btn-create" onclick="createRoom()" style="flex:1;min-width:150px;">➕ Create Room</button>
+      <input class="code-input" id="join-code" maxlength="4" placeholder="CODE"
+             autocomplete="off" autocapitalize="characters" spellcheck="false"
+             onkeydown="if(event.key==='Enter')joinRoom()">
+      <button class="btn btn-navy" id="btn-join" onclick="joinRoom()" style="flex:1;min-width:130px;">🔗 Join Room</button>
+    </div>
+    <div class="lobby-row" style="font-size:.72rem;color:var(--text-med);">
+      One of you creates a room and reads out the 4-letter code; the other types it in. You each place your own fleet on your own screen.
+    </div>
+  </div>
+
+  <!-- once a room exists -->
+  <div id="lobby-active" style="display:none;">
+    <div class="lobby-row">
+      <div class="room-code" id="room-code">————</div>
+      <button class="btn btn-navy" id="btn-copy-code" onclick="copyRoomCode()" style="min-width:110px;">📋 Copy</button>
+      <button class="btn btn-gold" onclick="swapSides()" style="min-width:120px;">⇄ Swap Sides</button>
+      <button class="btn btn-danger" onclick="leaveRoom()" style="min-width:100px;">✖ Leave</button>
+    </div>
+  </div>
+
+  <div class="net-status">
+    <span class="net-dot" id="net-dot"></span>
+    <span id="net-msg">Not connected.</span>
+    <span class="role-pill rp-team" id="role-pill" style="display:none;">You are Team</span>
+  </div>
+</div>
+
+<!-- ══════════ BACKGROUND MUSIC ══════════ -->
+<div class="music-bar">
+  <button class="mus-btn" id="mus-toggle" onclick="toggleBgm()" title="Play / pause background music">▶</button>
+  <span class="mus-title" id="mus-title">No track saved</span>
+  <input class="mus-url" id="mus-url" placeholder="Paste a YouTube link or ID…" autocomplete="off"
+         onkeydown="if(event.key==='Enter')saveBgm()">
+  <button class="mus-btn" onclick="saveBgm()" title="Save this track — it is remembered next time">💾 Save</button>
+  <input class="mus-vol" id="mus-vol" type="range" min="0" max="100" value="35"
+         oninput="setBgmVolume(this.value)" title="Volume">
+  <button class="mus-btn" onclick="clearBgm()" title="Forget the saved track">🗑</button>
+</div>
+<div id="yt-host"></div>
+
+<!-- ══════════ DASHBOARD ══════════ -->
   <div class="dashboard">
     <div class="dash-block">
       <div class="dash-label">Time Left</div>
@@ -1433,10 +1726,9 @@
       </div>
 
       <h2>⚙️ Fleet Setup</h2>
-      <p class="sp-sub">
-        Each side gets <strong>30 blocks</strong> and may split them into any number of battleships —
-        any size, position and orientation (horizontal, vertical or diagonal).
-        Place one fleet at a time so the other side does not see it.
+      <p class="sp-sub" id="sp-blurb">
+        Each side gets 30 blocks and may split them into any number of battleships — any size, position and
+        orientation (horizontal, vertical or diagonal). Place one fleet at a time so the other side does not see it.
       </p>
 
       <div class="sp-tabs">
@@ -1588,8 +1880,8 @@
        Every shot recorded on board X was fired by OPP[X].
     ──────────────────────────────────────────────────── */
     const board = {
-      TEAM: { fleet: new Set(), shots: new Array(GRID * GRID).fill(null), img: DEFAULT_IMG.TEAM, imgName: DEFAULT_IMG_NAME.TEAM },
-      GM: { fleet: new Set(), shots: new Array(GRID * GRID).fill(null), img: DEFAULT_IMG.GM, imgName: DEFAULT_IMG_NAME.GM }
+      TEAM: { fleet: new Set(), total: 0, shots: new Array(GRID * GRID).fill(null), img: DEFAULT_IMG.TEAM, imgName: DEFAULT_IMG_NAME.TEAM },
+      GM: { fleet: new Set(), total: 0, shots: new Array(GRID * GRID).fill(null), img: DEFAULT_IMG.GM, imgName: DEFAULT_IMG_NAME.GM }
     };
 
     let currentTurn = 'TEAM';
@@ -1645,7 +1937,8 @@
       const gridEl = document.getElementById('grid-' + side);
       const b = board[side];
       const live = gameRunning && !gameOver && !awaitingHandoff;
-      const isTarget = live && side === OPP[currentTurn];
+      /* online you may only ever fire on the enemy grid, and only on your own turn */
+      const isTarget = live && side === OPP[currentTurn] && myTurn() && !awaitingResult;
 
       gridEl.innerHTML = '';
 
@@ -1703,11 +1996,23 @@
         if (isTarget) {
           panel.classList.add('is-target');
           tag.classList.add('t-fire');
-          tag.textContent = NAME[currentTurn] + ' fires here';
+          tag.textContent = isOnline() ? 'Your target — fire here' : NAME[currentTurn] + ' fires here';
+        } else if (isOnline()) {
+          /* online the sides are fixed to a device, so label by ownership */
+          const mine = side === myRole;
+          if (mine) panel.classList.add('is-own');
+          tag.textContent = mine
+            ? (awaitingResult ? 'Your waters' : (currentTurn === myRole ? 'Your waters' : 'Your waters — under fire'))
+            : (awaitingResult ? 'Waiting for their answer…' : 'Enemy waters — not your turn');
         } else {
           panel.classList.add('is-own');
           tag.textContent = 'Under fire — view only';
         }
+      } else if (isOnline()) {
+        const mine = side === myRole;
+        tag.textContent = mine
+          ? (board[side].fleet.size ? 'Your fleet ready (' + board[side].fleet.size + ')' : 'Place your fleet')
+          : (board[side].total ? 'Enemy fleet ready (' + board[side].total + ')' : 'Waiting for opponent');
       } else {
         tag.textContent = board[side].fleet.size
           ? NAME[side] + ' fleet ready'
@@ -1730,8 +2035,23 @@
       if (targetSide !== OPP[currentTurn]) return;   /* own grid is off limits */
       if (board[targetSide].shots[index] !== null) return;
 
-      const shooter = currentTurn;
-      const isHit = board[targetSide].fleet.has(index);
+      if (isOnline()) {
+        /* only the defender's device knows its fleet, so ask rather than resolve */
+        if (currentTurn !== myRole || awaitingResult || !conn) return;
+        awaitingResult = true;
+        send({ t: 'shot', i: index });
+        renderAll();                    /* board stays locked until the answer lands */
+        return;
+      }
+
+      applyShot(targetSide, index, board[targetSide].fleet.has(index));
+    }
+
+    /* Runs on both devices with the same inputs, so the two screens stay identical. */
+    function applyShot(targetSide, index, isHit) {
+      if (board[targetSide].shots[index] !== null) return;
+
+      const shooter = OPP[targetSide];
       board[targetSide].shots[index] = isHit ? 'HIT' : 'MISS';
 
       const where = cellName(index);
@@ -1741,12 +2061,29 @@
         addLog(NAME[shooter], `💥 HIT at ${where} — fires again (streak ${hitStreak})`, LOGC[shooter]);
         renderAll();
         updateDashboard();
-        checkVictory(shooter);          /* keeps the turn with the shooter */
+        if (checkVictory(shooter)) return;   /* otherwise the turn stays with the shooter */
+        if (isOnline()) {
+          showToast(shooter === myRole
+            ? `<span class="t-hit">💥 Hit at ${where}</span> — fire again`
+            : `<span class="t-hit">💥 ${NAME[shooter]} hit ${where}</span> — they fire again`);
+        }
         return;
       }
 
       hitStreak = 0;
       addLog(NAME[shooter], `💨 Miss at ${where} — turn passes`, LOGC[shooter]);
+
+      if (isOnline()) {
+        /* no device to hand over, so the turn just flips */
+        currentTurn = OPP[shooter];
+        renderAll();
+        updateDashboard();
+        showToast(currentTurn === myRole
+          ? `<span class="t-miss">💨 ${NAME[shooter]} missed at ${where}</span> — your turn`
+          : `<span class="t-miss">💨 Miss at ${where}</span> — ${NAME[currentTurn]}'s turn`);
+        return;
+      }
+
       awaitingHandoff = true;
       renderAll();
       updateDashboard();
@@ -1796,6 +2133,8 @@
       const el = document.getElementById('timer-val');
       el.classList.remove('danger');
       el.textContent = timeLeft + 's';
+      /* online the host owns the clock and broadcasts it, so the two never drift */
+      if (isOnline() && !isHost) return;
       timerHandle = setInterval(tickTimer, 1000);
     }
 
@@ -1810,8 +2149,10 @@
       const el = document.getElementById('timer-val');
       el.textContent = timeLeft + 's';
       if (timeLeft <= 10) el.classList.add('danger');
+      if (isOnline()) send({ t: 'tick', left: timeLeft });
       if (timeLeft <= 0) {
         clearInterval(timerHandle);
+        if (isOnline()) send({ t: 'over', reason: 'TIME_EXPIRED' });
         endGame('TIME_EXPIRED');
       }
     }
@@ -1827,7 +2168,7 @@
         shots++;
         if (s === 'HIT') hits++;
       }
-      const target = enemy.fleet.size;
+      const target = fleetTotal(OPP[who]);
       return {
         hits, shots, target,
         left: Math.max(0, target - hits),
@@ -1924,8 +2265,8 @@
       document.getElementById('gm-bar').style.width = (g.target ? (g.hits / g.target) * 100 : 0) + '%';
 
       /* per-board footers: a board loses blocks to the opponent's hits */
-      document.getElementById('fleet-TEAM').textContent = board.TEAM.fleet.size;
-      document.getElementById('fleet-GM').textContent = board.GM.fleet.size;
+      document.getElementById('fleet-TEAM').textContent = fleetTotal('TEAM');
+      document.getElementById('fleet-GM').textContent = fleetTotal('GM');
       document.getElementById('lost-TEAM').textContent = g.hits;
       document.getElementById('lost-GM').textContent = t.hits;
       document.getElementById('shots-TEAM').textContent = g.shots;
@@ -1976,6 +2317,16 @@
        START / RESTART
     ════════════════════════════════════════ */
     function startGame() {
+      if (isOnline()) {
+        if (!conn || !conn.open) { showToast('Not connected to another player yet.'); return; }
+        if (!iAmReady) { showToast('Lock in your own fleet first.'); return; }
+        if (!theyAreReady) { showToast('Waiting for the other player to lock in their fleet.'); return; }
+        if (!isHost) { showToast('The player who created the room starts the game.'); return; }
+        send({ t: 'start', timerSecs, total: board[myRole].fleet.size });
+        beginRound(timerSecs);
+        return;
+      }
+
       const missing = ['TEAM', 'GM'].filter(s => board[s].fleet.size === 0);
       if (missing.length) {
         alert('⚠ Both fleets must be placed first.\n\nMissing: ' + missing.map(s => NAME[s]).join(' and ') +
@@ -1983,6 +2334,12 @@
         return;
       }
 
+      beginRound(timerSecs);
+    }
+
+    /* the part of a start that both devices run */
+    function beginRound(secs) {
+      timerSecs = secs;
       gameOver = false;
       gameRunning = true;
       awaitingHandoff = false;
@@ -1998,15 +2355,29 @@
       document.getElementById('result-overlay').classList.remove('show');
       document.getElementById('turn-switch-overlay').classList.remove('show');
 
+      awaitingResult = false;
       renderAll();
       updateDashboard();
       startTimer();
       addLog('System',
-        `Game started — Team fleet ${board.TEAM.fleet.size} blocks vs Gamemaster fleet ${board.GM.fleet.size} blocks. ` +
+        `Game started — Team fleet ${fleetTotal('TEAM')} blocks vs Gamemaster fleet ${fleetTotal('GM')} blocks. ` +
         `Team fires first. A hit earns another shot; a miss passes the turn.`, 'lc-sys');
+      if (isOnline()) {
+        showToast(currentTurn === myRole
+          ? '⚓ Game on — you fire first'
+          : `⚓ Game on — ${NAME[currentTurn]} fires first`);
+      }
     }
 
     function restartGame() {
+      if (isOnline()) {
+        if (!isHost) { showToast('The player who created the room restarts the game.'); return; }
+        send({ t: 'reset' });
+      }
+      doRestart(true);
+    }
+
+    function doRestart(announce) {
       clearInterval(timerHandle);
       gameRunning = false;
       gameOver = false;
@@ -2024,9 +2395,15 @@
       document.getElementById('timer-val').textContent = timerSecs + 's';
       document.getElementById('timer-val').classList.remove('danger');
 
+      awaitingResult = false;
       renderAll();
       updateDashboard();
-      addLog('System', 'Board reset. Fleets kept — reopen Setup to change them, or press Start Game.', 'lc-sys');
+      if (announce !== false) {
+        addLog('System', 'Board reset. Fleets kept — reopen Setup to change them, or press Start Game.', 'lc-sys');
+      } else {
+        addLog('System', 'The host reset the board. Fleets kept.', 'lc-sys');
+        showToast('The host reset the board.');
+      }
     }
 
     /* ════════════════════════════════════════
@@ -2105,7 +2482,12 @@
         draft[side].img = board[side].img;
         draft[side].imgName = board[side].imgName;
       }
-      stage = 'TEAM';
+      /* online you place only your own fleet, on your own device */
+      stage = isOnline() ? myRole : 'TEAM';
+      document.querySelector('.sp-tabs').style.display = isOnline() ? 'none' : '';
+      document.getElementById('sp-blurb').textContent = isOnline()
+        ? `You are ${NAME[myRole]}. Place your 30 blocks — your opponent never sees them, and only your device knows where they are.`
+        : 'Each side gets 30 blocks and may split them into any number of battleships — any size, position and orientation (horizontal, vertical or diagonal). Place one fleet at a time so the other side does not see it.';
       buildSetupGrid();
       syncStageUI();
       document.getElementById('sp-curtain').classList.remove('show');
@@ -2129,9 +2511,12 @@
       document.getElementById('tab-' + stage).classList.add('active');
       document.getElementById('tab-' + other).classList.remove('active');
 
-      document.getElementById('sp-grid-title').textContent = `Place ${NAME[stage]} Fleet (10 × 10)`;
-      document.getElementById('sp-primary').textContent =
-        stage === 'TEAM' ? '✅ Lock In Team Fleet' : '✅ Lock In Fleet & Finish';
+      document.getElementById('sp-grid-title').textContent = isOnline()
+        ? `Place Your Fleet — ${NAME[stage]} (10 × 10)`
+        : `Place ${NAME[stage]} Fleet (10 × 10)`;
+      document.getElementById('sp-primary').textContent = isOnline()
+        ? '✅ Lock In My Fleet'
+        : (stage === 'TEAM' ? '✅ Lock In Team Fleet' : '✅ Lock In Fleet & Finish');
 
       /* this side's background image */
       document.getElementById('img-file-input').value = '';
@@ -2163,6 +2548,18 @@
 
       const ships = findShips(d.marks);
       addLog('System', `${NAME[stage]} fleet locked in — ${count} blocks in ${ships.length} battleship${ships.length === 1 ? '' : 's'}.`, 'lc-sys');
+
+      if (isOnline()) {
+        /* nothing to hand over — tell the opponent the size and wait for theirs */
+        board[stage].total = count;
+        iAmReady = true;
+        sendReadyIfSet();
+        netStatus('live', bothReady()
+          ? (isHost ? 'Both fleets ready — press Start Game.' : 'Both fleets ready — waiting for the host to start.')
+          : 'Your fleet is locked in. Waiting for the other player…');
+        applySetup();
+        return;
+      }
 
       if (stage === 'TEAM') {
         /* privacy handoff before the Gamemaster places its fleet */
@@ -2365,6 +2762,481 @@
     }
 
     /* ════════════════════════════════════════
+       ONLINE PLAY — peer to peer
+
+       Each device keeps its own fleet and only
+       ever answers "hit" or "miss", so a fleet
+       is never sent over the wire and cannot be
+       read out of the other player's traffic.
+    ════════════════════════════════════════ */
+    const PEERJS_SRC = 'https://unpkg.com/peerjs@1.5.5/dist/peerjs.min.js';
+    const ROOM_PREFIX = 'shipopoly-vop-';
+    const CODE_LETTERS = 'ABCDEFGHJKLMNPQRSTUVWXYZ';   /* no I or O — misheard when read aloud */
+
+    let netMode = 'local';        /* 'local' | 'online' */
+    let myRole = 'TEAM';          /* the side this device controls when online */
+    let isHost = false;
+    let peer = null;
+    let conn = null;
+    let roomCode = '';
+    let peerScriptLoaded = false;
+    let iAmReady = false;
+    let theyAreReady = false;
+    let awaitingResult = false;   /* a shot is in flight, board stays locked */
+
+    function isOnline() { return netMode === 'online'; }
+    function myTurn() { return !isOnline() || currentTurn === myRole; }
+
+    /* Online, the opponent's grid lives on their device and this one must never
+       hold a fleet for it. Clearing both sides also drops anything left over from
+       a pass & play session, so each player places fresh. */
+    function clearOpponentBoard() {
+      for (const side of ['TEAM', 'GM']) {
+        board[side].fleet = new Set();
+        board[side].total = 0;
+        board[side].shots = new Array(GRID * GRID).fill(null);
+      }
+      iAmReady = theyAreReady = false;
+      awaitingResult = false;
+    }
+
+    /* fleet sizes are public; only positions are secret, so the opponent's
+       total arrives with their "ready" message rather than being counted */
+    function fleetTotal(side) {
+      if (isOnline() && side !== myRole) return board[side].total || 0;
+      return board[side].fleet.size;
+    }
+
+    function setMode(mode) {
+      if (gameRunning) { showToast('Finish or restart the current game first.'); return; }
+      if (mode === netMode) return;
+      if (mode === 'local') leaveRoom(true);
+
+      netMode = mode;
+      myRole = 'TEAM';
+      document.getElementById('mode-local').classList.toggle('active', mode === 'local');
+      document.getElementById('mode-online').classList.toggle('active', mode === 'online');
+      document.getElementById('lobby').classList.toggle('show', mode === 'online');
+
+      iAmReady = theyAreReady = false;
+      if (mode === 'online') {
+        clearOpponentBoard();
+      } else {
+        board.TEAM.total = board.TEAM.fleet.size;
+        board.GM.total = board.GM.fleet.size;
+      }
+
+      renderAll();
+      updateDashboard();
+      addLog('System', mode === 'online'
+        ? 'Online mode. Create a room or join one with a 4-letter code.'
+        : 'Pass & play mode. Both fleets are placed on this device.', 'lc-sys');
+    }
+
+    /* ── lobby plumbing ── */
+    function netStatus(state, msg) {
+      const dot = document.getElementById('net-dot');
+      dot.className = 'net-dot' + (state ? ' ' + state : '');
+      document.getElementById('net-msg').textContent = msg;
+
+      const pill = document.getElementById('role-pill');
+      if (isOnline() && conn) {
+        pill.style.display = '';
+        pill.textContent = 'You are ' + NAME[myRole];
+        pill.className = 'role-pill ' + (myRole === 'TEAM' ? 'rp-team' : 'rp-gm');
+      } else {
+        pill.style.display = 'none';
+      }
+    }
+
+    function lobbyView(active) {
+      document.getElementById('lobby-idle').style.display = active ? 'none' : '';
+      document.getElementById('lobby-active').style.display = active ? '' : 'none';
+    }
+
+    function randomCode() {
+      let s = '';
+      for (let i = 0; i < 4; i++) s += CODE_LETTERS[Math.floor(Math.random() * CODE_LETTERS.length)];
+      return s;
+    }
+
+    function loadPeerJs() {
+      if (peerScriptLoaded) return Promise.resolve();
+      return new Promise((resolve, reject) => {
+        const s = document.createElement('script');
+        s.src = PEERJS_SRC;
+        s.onload = () => { peerScriptLoaded = true; resolve(); };
+        s.onerror = () => reject(new Error('Could not load the connection library. Check your internet.'));
+        document.head.appendChild(s);
+      });
+    }
+
+    async function createRoom() {
+      try {
+        netStatus('waiting', 'Loading connection library…');
+        await loadPeerJs();
+      } catch (e) { netStatus('error', e.message); return; }
+
+      roomCode = randomCode();
+      isHost = true;
+      myRole = 'GM';                 /* whoever hosts runs the station; swap if you like */
+      clearOpponentBoard();
+      document.getElementById('room-code').textContent = roomCode;
+      lobbyView(true);
+      netStatus('waiting', `Room ${roomCode} open — waiting for the other player…`);
+
+      peer = new Peer(ROOM_PREFIX + roomCode);
+      peer.on('open', () => netStatus('waiting', `Room ${roomCode} open — waiting for the other player…`));
+      peer.on('connection', (c) => {
+        if (conn) { c.close(); return; }        /* room is a two-player room */
+        conn = c;
+        wireConn(c);
+      });
+      peer.on('error', (err) => {
+        if (err.type === 'unavailable-id') {
+          netStatus('error', 'That room code is already taken — try creating again.');
+        } else {
+          netStatus('error', 'Connection error: ' + err.type);
+        }
+      });
+    }
+
+    async function joinRoom() {
+      const input = document.getElementById('join-code');
+      const code = (input.value || '').trim().toUpperCase();
+      if (code.length !== 4) { netStatus('error', 'Enter the 4-letter room code.'); return; }
+
+      try {
+        netStatus('waiting', 'Loading connection library…');
+        await loadPeerJs();
+      } catch (e) { netStatus('error', e.message); return; }
+
+      roomCode = code;
+      isHost = false;
+      myRole = 'TEAM';
+      clearOpponentBoard();
+      document.getElementById('room-code').textContent = roomCode;
+      lobbyView(true);
+      netStatus('waiting', `Connecting to room ${roomCode}…`);
+
+      peer = new Peer();
+      peer.on('open', () => {
+        conn = peer.connect(ROOM_PREFIX + roomCode, { reliable: true });
+        wireConn(conn);
+      });
+      peer.on('error', (err) => {
+        netStatus('error', err.type === 'peer-unavailable'
+          ? `No open room called ${roomCode}. Check the code, or ask them to create it again.`
+          : 'Connection error: ' + err.type);
+      });
+    }
+
+    function wireConn(c) {
+      c.on('open', () => {
+        netStatus('live', 'Connected. Place your fleet, then lock it in.');
+        if (isHost) send({ t: 'hello', hostRole: myRole });
+        sendReadyIfSet();
+        renderAll();
+        updateDashboard();
+      });
+      c.on('data', onNetMessage);
+      c.on('close', () => {
+        netStatus('error', 'The other player disconnected.');
+        conn = null;
+        theyAreReady = false;
+        if (gameRunning) { clearInterval(timerHandle); gameRunning = false; }
+        renderAll();
+        updateDashboard();
+      });
+      c.on('error', () => netStatus('error', 'Connection dropped.'));
+    }
+
+    function leaveRoom(quiet) {
+      if (conn) { try { send({ t: 'bye' }); conn.close(); } catch (e) {} }
+      if (peer) { try { peer.destroy(); } catch (e) {} }
+      conn = null; peer = null; isHost = false; roomCode = '';
+      iAmReady = theyAreReady = false;
+      awaitingResult = false;
+      board.TEAM.total = board.TEAM.fleet.size;
+      board.GM.total = board.GM.fleet.size;
+      lobbyView(false);
+      if (!quiet) {
+        netStatus('', 'Not connected.');
+        renderAll();
+        updateDashboard();
+      }
+    }
+
+    function copyRoomCode() {
+      const code = document.getElementById('room-code').textContent;
+      if (navigator.clipboard) {
+        navigator.clipboard.writeText(code).then(
+          () => showToast('Room code <b>' + code + '</b> copied'),
+          () => showToast('Room code: <b>' + code + '</b>'));
+      } else {
+        showToast('Room code: <b>' + code + '</b>');
+      }
+    }
+
+    function swapSides() {
+      if (gameRunning) { showToast('Cannot swap sides mid-game.'); return; }
+      send({ t: 'swap' });
+      myRole = OPP[myRole];
+      clearOpponentBoard();
+      netStatus('live', 'Sides swapped — place your fleet again.');
+      renderAll();
+      updateDashboard();
+    }
+
+    function send(obj) {
+      if (conn && conn.open) { try { conn.send(obj); } catch (e) {} }
+    }
+
+    function sendReadyIfSet() {
+      if (!iAmReady) return;
+      send({ t: 'ready', total: board[myRole].fleet.size, ships: findShips(board[myRole].fleet).length });
+    }
+
+    function onNetMessage(m) {
+      if (!m || typeof m !== 'object') return;
+
+      switch (m.t) {
+        case 'hello':
+          /* the host announces which side it took; this device takes the other */
+          myRole = OPP[m.hostRole];
+          clearOpponentBoard();
+          netStatus('live', 'Connected. Place your fleet, then lock it in.');
+          sendReadyIfSet();
+          renderAll();
+          updateDashboard();
+          break;
+
+        case 'swap':
+          myRole = OPP[myRole];
+          clearOpponentBoard();
+          netStatus('live', 'Sides swapped — place your fleet again.');
+          renderAll();
+          updateDashboard();
+          break;
+
+        case 'ready':
+          theyAreReady = true;
+          board[OPP[myRole]].total = m.total;
+          addLog('System', `${NAME[OPP[myRole]]} locked in ${m.total} blocks in ${m.ships} battleship${m.ships === 1 ? '' : 's'}.`, 'lc-sys');
+          netStatus('live', bothReady()
+            ? (isHost ? 'Both fleets ready — press Start Game.' : 'Both fleets ready — waiting for the host to start.')
+            : 'Waiting for you to lock in your fleet.');
+          updateDashboard();
+          break;
+
+        case 'start':
+          board[OPP[myRole]].total = m.total;
+          beginRound(m.timerSecs);
+          break;
+
+        case 'shot': {
+          /* they fired at me — my device is the only one that knows my fleet */
+          const mine = board[myRole];
+          if (!gameRunning || gameOver || mine.shots[m.i] !== null) return;
+          const isHit = mine.fleet.has(m.i);
+          send({ t: 'result', i: m.i, hit: isHit });
+          applyShot(myRole, m.i, isHit);
+          break;
+        }
+
+        case 'result':
+          awaitingResult = false;
+          applyShot(OPP[myRole], m.i, m.hit);
+          break;
+
+        case 'tick':
+          timeLeft = m.left;
+          document.getElementById('timer-val').textContent = timeLeft + 's';
+          document.getElementById('timer-val').classList.toggle('danger', timeLeft <= 10);
+          break;
+
+        case 'over':
+          if (!gameOver) endGame(m.reason, m.clearedBy);
+          break;
+
+        case 'reset':
+          doRestart(false);
+          break;
+
+        case 'bye':
+          netStatus('error', 'The other player left the room.');
+          break;
+      }
+    }
+
+    function bothReady() { return iAmReady && theyAreReady; }
+
+    /* ── toast, used online where there is no device to hand over ── */
+    let toastHandle = null;
+    function showToast(html, ms) {
+      const el = document.getElementById('toast');
+      el.innerHTML = html;
+      el.classList.add('show');
+      clearTimeout(toastHandle);
+      toastHandle = setTimeout(() => el.classList.remove('show'), ms || 2600);
+    }
+
+    /* ════════════════════════════════════════
+       BACKGROUND MUSIC — YouTube as the source
+
+       The chosen track is kept in localStorage,
+       so it only has to be pasted in once.
+    ════════════════════════════════════════ */
+    const BGM_KEY = 'shipopoly.bgm';
+    let ytPlayer = null;
+    let ytApiLoading = null;
+    let bgmVideoId = '';
+    let bgmVolume = 35;
+    let bgmPlaying = false;
+
+    function readBgmPrefs() {
+      try {
+        const raw = localStorage.getItem(BGM_KEY);
+        if (!raw) return;
+        const p = JSON.parse(raw);
+        bgmVideoId = p.videoId || '';
+        bgmVolume = typeof p.volume === 'number' ? p.volume : 35;
+      } catch (e) { /* private mode or file:// — music just will not persist */ }
+    }
+
+    function writeBgmPrefs() {
+      try { localStorage.setItem(BGM_KEY, JSON.stringify({ videoId: bgmVideoId, volume: bgmVolume })); }
+      catch (e) {}
+    }
+
+    /* accepts a full watch/share/embed/shorts URL or a bare 11-character id */
+    function parseYouTubeId(input) {
+      const s = (input || '').trim();
+      if (!s) return '';
+      if (/^[\w-]{11}$/.test(s)) return s;
+      const patterns = [
+        /[?&]v=([\w-]{11})/,
+        /youtu\.be\/([\w-]{11})/,
+        /\/embed\/([\w-]{11})/,
+        /\/shorts\/([\w-]{11})/,
+        /\/live\/([\w-]{11})/
+      ];
+      for (const re of patterns) {
+        const m = s.match(re);
+        if (m) return m[1];
+      }
+      return '';
+    }
+
+    function loadYouTubeApi() {
+      if (window.YT && window.YT.Player) return Promise.resolve();
+      if (ytApiLoading) return ytApiLoading;
+      ytApiLoading = new Promise((resolve, reject) => {
+        window.onYouTubeIframeAPIReady = () => resolve();
+        const s = document.createElement('script');
+        s.src = 'https://www.youtube.com/iframe_api';
+        s.onerror = () => reject(new Error('Could not reach YouTube.'));
+        document.head.appendChild(s);
+        setTimeout(() => reject(new Error('YouTube did not respond.')), 12000);
+      });
+      return ytApiLoading;
+    }
+
+    async function ensurePlayer() {
+      if (!bgmVideoId) return null;
+      await loadYouTubeApi();
+      if (ytPlayer && ytPlayer.loadVideoById) return ytPlayer;
+
+      return new Promise((resolve) => {
+        ytPlayer = new YT.Player('yt-host', {
+          height: '1', width: '1',
+          videoId: bgmVideoId,
+          playerVars: {
+            autoplay: 0, controls: 0, disablekb: 1, fs: 0,
+            loop: 1, playlist: bgmVideoId,   /* a single video needs playlist set to loop */
+            modestbranding: 1, rel: 0
+          },
+          events: {
+            onReady: () => { ytPlayer.setVolume(bgmVolume); resolve(ytPlayer); },
+            onStateChange: (e) => {
+              if (e.data === YT.PlayerState.ENDED) { ytPlayer.seekTo(0); ytPlayer.playVideo(); }
+              bgmPlaying = (e.data === YT.PlayerState.PLAYING);
+              updateMusicUi();
+            },
+            onError: () => { showToast('That video cannot be played here — try another.'); }
+          }
+        });
+      });
+    }
+
+    async function toggleBgm() {
+      if (!bgmVideoId) {
+        const typed = parseYouTubeId(document.getElementById('mus-url').value);
+        if (!typed) { showToast('Paste a YouTube link first, then press 💾 Save.'); return; }
+        saveBgm();
+        return;
+      }
+      try {
+        const p = await ensurePlayer();
+        if (!p) return;
+        if (bgmPlaying) { p.pauseVideo(); bgmPlaying = false; }
+        else { p.setVolume(bgmVolume); p.playVideo(); bgmPlaying = true; }
+        updateMusicUi();
+      } catch (e) {
+        showToast(e.message || 'Could not start the music.');
+      }
+    }
+
+    async function saveBgm() {
+      const field = document.getElementById('mus-url');
+      const id = parseYouTubeId(field.value);
+      if (!id) { showToast('That does not look like a YouTube link or ID.'); return; }
+
+      const changed = id !== bgmVideoId;
+      bgmVideoId = id;
+      writeBgmPrefs();
+      field.value = '';
+      updateMusicUi();
+      showToast('Track saved — it will load automatically next time.');
+
+      try {
+        const p = await ensurePlayer();
+        if (!p) return;
+        if (changed && p.loadVideoById) p.loadVideoById({ videoId: bgmVideoId });
+        p.setVolume(bgmVolume);
+        p.playVideo();
+        bgmPlaying = true;
+        updateMusicUi();
+      } catch (e) { /* saved regardless; playback can be retried with ▶ */ }
+    }
+
+    function clearBgm() {
+      bgmVideoId = '';
+      bgmPlaying = false;
+      try { localStorage.removeItem(BGM_KEY); } catch (e) {}
+      if (ytPlayer && ytPlayer.stopVideo) ytPlayer.stopVideo();
+      updateMusicUi();
+      showToast('Saved track forgotten.');
+    }
+
+    function setBgmVolume(v) {
+      bgmVolume = parseInt(v, 10);
+      if (ytPlayer && ytPlayer.setVolume) ytPlayer.setVolume(bgmVolume);
+      writeBgmPrefs();
+    }
+
+    function updateMusicUi() {
+      const btn = document.getElementById('mus-toggle');
+      const title = document.getElementById('mus-title');
+      btn.textContent = bgmPlaying ? '⏸' : '▶';
+      btn.classList.toggle('playing', bgmPlaying);
+      title.innerHTML = bgmVideoId
+        ? (bgmPlaying ? '♪ <b>Playing</b> — ' : 'Saved track — ') + '<b>' + bgmVideoId + '</b>'
+        : 'No track saved';
+      document.getElementById('mus-vol').value = bgmVolume;
+    }
+
+    /* ════════════════════════════════════════
        INIT
     ════════════════════════════════════════ */
     buildAxisLabels('TEAM');
@@ -2372,7 +3244,17 @@
     buildSetupGrid();
     renderAll();
     updateDashboard();
+
+    /* the saved BGM track comes back on its own; browsers will not let it play
+       until the page has been clicked, so it waits on the ▶ button */
+    readBgmPrefs();
+    updateMusicUi();
+    netStatus('', 'Not connected.');
   </script>
+
+<!-- ══════════ TOAST ══════════ -->
+<div id="toast"></div>
+
 </body>
 
 </html>
